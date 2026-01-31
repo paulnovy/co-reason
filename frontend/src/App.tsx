@@ -937,6 +937,17 @@ function App() {
                                   if (ok === 'linear') {
                                     const nz = full.response_json?.meta?.objective?.normalize;
                                     setLinearNormalizeDomain(nz === 'domain');
+
+                                    const terms = full.response_json?.meta?.objective?.terms;
+                                    if (Array.isArray(terms)) {
+                                      const next: Record<number, string> = {};
+                                      for (const t of terms) {
+                                        const vid = Number(t?.variable_id);
+                                        const w = Number(t?.weight);
+                                        if (Number.isFinite(vid) && vid > 0 && Number.isFinite(w)) next[vid] = String(w);
+                                      }
+                                      setLinearWeights((prev) => ({ ...prev, ...next }));
+                                    }
                                   }
                                   if (ok === 'target') {
                                     const tv = full.response_json?.meta?.objective?.target;
@@ -998,6 +1009,17 @@ function App() {
                                     if (ok === 'linear') {
                                       const nz = data?.meta?.objective?.normalize;
                                       setLinearNormalizeDomain(nz === 'domain');
+
+                                      const terms = data?.meta?.objective?.terms;
+                                      if (Array.isArray(terms)) {
+                                        const next: Record<number, string> = {};
+                                        for (const t of terms) {
+                                          const vid = Number(t?.variable_id);
+                                          const w = Number(t?.weight);
+                                          if (Number.isFinite(vid) && vid > 0 && Number.isFinite(w)) next[vid] = String(w);
+                                        }
+                                        setLinearWeights((prev) => ({ ...prev, ...next }));
+                                      }
                                     }
                                     if (ok === 'target') {
                                       const tv = data?.meta?.objective?.target;
