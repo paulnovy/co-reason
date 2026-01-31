@@ -10,6 +10,8 @@ function App() {
   // Runs history (persisted on backend)
   const [runs, setRuns] = useState<any[]>([]);
   const [runsError, setRunsError] = useState<string | null>(null);
+  const [runsNotice, setRunsNotice] = useState<string | null>(null);
+  const [runDetail, setRunDetail] = useState<any | null>(null);
 
   const fetchJson = async (url: string, options?: RequestInit) => {
     const resp = await fetch(url, options);
@@ -29,6 +31,7 @@ function App() {
   const refreshRuns = async () => {
     try {
       setRunsError(null);
+      setRunsNotice(null);
       const data = await fetchJson('/runs');
       setRuns(data.items || []);
     } catch (e: any) {
@@ -658,9 +661,65 @@ function App() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-medium">Run history</div>
-                  <button className="px-3 py-1 border rounded text-xs" onClick={refreshRuns}>Refresh</button>
+                  <div className="flex items-center gap-2">
+                    <button className="px-3 py-1 border rounded text-xs" onClick={refreshRuns}>Refresh</button>
+                    <button
+                      className="px-3 py-1 border rounded text-xs"
+                      onClick={() => setRunDetail(null)}
+                      title="Close details"
+                    >
+                      Clear detail
+                    </button>
+                  </div>
                 </div>
+                {runsNotice && <pre className="text-xs text-emerald-700 whitespace-pre-wrap">{runsNotice}</pre>}
                 {runsError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{runsError}</pre>}
+                {runDetail && (
+                  <div className="mb-3 p-3 bg-gray-50 border rounded">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Run detail #{runDetail.id}</div>
+                      <button className="px-2 py-1 border rounded text-xs" onClick={() => setRunDetail(null)}>
+                        Close
+                      </button>
+                    </div>
+                    <div className="text-[10px] text-gray-600 mt-1">{runDetail.run_type} • {runDetail.created_at}</div>
+                    <details className="mt-2">
+                      <summary className="text-xs cursor-pointer">request_json</summary>
+                      <div className="flex justify-end mt-2">
+                        <button
+                          className="px-2 py-1 border rounded text-[10px]"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(JSON.stringify(runDetail.request_json, null, 2));
+                            setRunsNotice('Copied request_json to clipboard.');
+                          }}
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.request_json, null, 2)}</pre>
+                    </details>
+                    <details className="mt-2">
+                      <summary className="text-xs cursor-pointer">response_json</summary>
+                      <div className="flex justify-end mt-2">
+                        <button
+                          className="px-2 py-1 border rounded text-[10px]"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(JSON.stringify(runDetail.response_json, null, 2));
+                            setRunsNotice('Copied response_json to clipboard.');
+                          }}
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.response_json, null, 2)}</pre>
+                    </details>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   {runs.length === 0 ? (
                     <div className="text-xs text-gray-500">No runs saved yet.</div>
@@ -673,6 +732,7 @@ function App() {
                             onClick={async () => {
                               try {
                                 const full = await fetchJson(`/runs/${r.id}`);
+                                setRunDetail(full);
                                 if (full.run_type === 'doe') {
                                   setDoeResult(full.response_json);
                                   setDoeError(null);
