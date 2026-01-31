@@ -505,7 +505,7 @@ function App() {
                             method: optMethod,
                             seed: Number.isFinite(seed as any) ? seed : null,
                             objective: { kind: objectiveKind, variable_id: objectiveVarId },
-                            initial_points_count: initial_points.length,
+                            initial_points,
                             max_initial_points: Math.max(0, maxInitialPoints),
                           },
                           data
@@ -670,30 +670,31 @@ function App() {
                         <div className="flex items-center justify-between gap-2">
                           <button
                             className="text-left flex-1"
-                            onClick={() => {
+                            onClick={async () => {
                               try {
-                                if (r.run_type === 'doe') {
-                                  setDoeResult(r.response_json);
+                                const full = await fetchJson(`/runs/${r.id}`);
+                                if (full.run_type === 'doe') {
+                                  setDoeResult(full.response_json);
                                   setDoeError(null);
                                   setDoeOpen(true);
                                   const next: Record<number, boolean> = {};
-                                  for (const vid of (r.response_json?.variable_ids || [])) next[Number(vid)] = true;
+                                  for (const vid of (full.response_json?.variable_ids || [])) next[Number(vid)] = true;
                                   setSelectedIds(next);
                                 }
-                                if (r.run_type === 'optimize') {
-                                  setOptimizeResult(r.response_json);
+                                if (full.run_type === 'optimize') {
+                                  setOptimizeResult(full.response_json);
                                   setOptimizeError(null);
                                   setOptimizeOpen(true);
                                   const next: Record<number, boolean> = {};
-                                  for (const vid of (r.response_json?.variable_ids || [])) next[Number(vid)] = true;
+                                  for (const vid of (full.response_json?.variable_ids || [])) next[Number(vid)] = true;
                                   setSelectedIds(next);
-                                  const ov = Number(r.response_json?.meta?.objective?.variable_id);
+                                  const ov = Number(full.response_json?.meta?.objective?.variable_id);
                                   if (Number.isFinite(ov)) setObjectiveVarId(ov);
-                                  const ok = r.response_json?.meta?.objective?.kind;
+                                  const ok = full.response_json?.meta?.objective?.kind;
                                   if (ok === 'maximize_variable' || ok === 'minimize_variable') setObjectiveKind(ok);
                                 }
-                              } catch {
-                                // ignore
+                              } catch (e: any) {
+                                setRunsError(e?.message || String(e));
                               }
                             }}
                           >
@@ -703,6 +704,55 @@ function App() {
 
                           <div className="flex items-center gap-2">
                             <div className="text-[10px] text-gray-500">{r.run_type} • #{r.id}</div>
+
+                            <button
+                              className="px-2 py-1 border rounded text-[10px]"
+                              onClick={async () => {
+                                try {
+                                  const full = await fetchJson(`/runs/${r.id}`);
+                                  if (full.run_type === 'doe') {
+                                    const req = full.request_json || {};
+                                    const data = await fetchJson('/experiments/doe', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(req),
+                                    });
+                                    setDoeResult(data);
+                                    setDoeError(null);
+                                    setDoeOpen(true);
+                                    // ensure selection matches
+                                    const next: Record<number, boolean> = {};
+                                    for (const vid of (data?.variable_ids || [])) next[Number(vid)] = true;
+                                    setSelectedIds(next);
+                                    persistRun('doe', `${full.title || 'DOE'} (replay)`, req, data);
+                                  }
+                                  if (full.run_type === 'optimize') {
+                                    const req = full.request_json || {};
+                                    const data = await fetchJson('/experiments/optimize', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(req),
+                                    });
+                                    setOptimizeResult(data);
+                                    setOptimizeError(null);
+                                    setOptimizeOpen(true);
+                                    const next: Record<number, boolean> = {};
+                                    for (const vid of (data?.variable_ids || [])) next[Number(vid)] = true;
+                                    setSelectedIds(next);
+                                    const ov = Number(data?.meta?.objective?.variable_id);
+                                    if (Number.isFinite(ov)) setObjectiveVarId(ov);
+                                    const ok = data?.meta?.objective?.kind;
+                                    if (ok === 'maximize_variable' || ok === 'minimize_variable') setObjectiveKind(ok);
+                                    persistRun('optimize', `${full.title || 'Optimize'} (replay)`, req, data);
+                                  }
+                                } catch (e: any) {
+                                  setRunsError(e?.message || String(e));
+                                }
+                              }}
+                            >
+                              Replay
+                            </button>
+
                             <button
                               className="px-2 py-1 border rounded text-[10px]"
                               onClick={async () => {
