@@ -33,6 +33,7 @@ function App() {
   // Optimize UI (stub)
   const [optimizeOpen, setOptimizeOpen] = useState(false);
   const [nIter, setNIter] = useState(30);
+  const [optSeed, setOptSeed] = useState(1);
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
 
@@ -267,6 +268,15 @@ function App() {
                     value={nIter}
                     onChange={(e) => setNIter(parseInt(e.target.value || '1', 10))}
                   />
+
+                  <label className="text-sm ml-4">Seed</label>
+                  <input
+                    className="border rounded px-2 py-1 w-28"
+                    type="number"
+                    value={optSeed}
+                    onChange={(e) => setOptSeed(parseInt(e.target.value || '0', 10))}
+                  />
+
                   <span className="text-xs text-gray-500">(random within domain; placeholder objective)</span>
                 </div>
 
@@ -290,7 +300,7 @@ function App() {
                         const resp = await fetch('/experiments/optimize', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ variable_ids, n_iter: nIter, method: 'random', seed: 1 }),
+                          body: JSON.stringify({ variable_ids, n_iter: nIter, method: 'random', seed: optSeed }),
                         });
                         const data = await resp.json();
                         if (!resp.ok) throw new Error(JSON.stringify(data));
