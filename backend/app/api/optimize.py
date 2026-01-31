@@ -19,8 +19,7 @@ class OptimizeRequest(BaseModel):
     n_iter: int = Field(30, ge=1, le=5000)
     method: OptimizeMethod = Field(OptimizeMethod.random)
     seed: Optional[int] = None
-    # IMPORTANT: set variable_id explicitly in the request; default is placeholder and will be rejected.
-    objective: ObjectiveSpec = Field(default_factory=lambda: ObjectiveSpec(kind=ObjectiveKind.maximize_variable, variable_id=0))
+    objective: ObjectiveSpec = Field(...)
     initial_points: List[Dict[str, float]] = Field(default_factory=list)
     max_initial_points: int = Field(200, ge=0, le=5000)
 
@@ -79,11 +78,27 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
     rng = random.Random(req.seed)
 
     # Objective validation
-    if req.objective.variable_id not in req.variable_ids:
-        raise HTTPException(
-            status_code=422,
-            detail={"reason": "objective.variable_id must be included in variable_ids", "variable_id": req.objective.variable_id},
-        )
+    if req.objective.kind in (ObjectiveKind.maximize_variable, ObjectiveKind.minimize_variable):
+        if req.objective.variable_id not in req.variable_ids:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "reason": "objective.variable_id must be included in variable_ids",
+                    "variable_id": req.objective.variable_id,
+                },
+            )
+    elif req.objective.kind == ObjectiveKind.linear:
+        term_ids = [t.variable_id for t in (req.objective.terms or [])]
+        if not term_ids:
+            raise HTTPException(status_code=422, detail={"reason": "objective.terms must be non-empty"})
+        missing = [vid for vid in term_ids if vid not in req.variable_ids]
+        if missing:
+            raise HTTPException(
+                status_code=422,
+                detail={"reason": "objective.terms variable_ids must be included in variable_ids", "missing": missing},
+            )
+    else:
+        raise HTTPException(status_code=422, detail={"reason": "unsupported objective kind", "kind": str(req.objective.kind)})
 
     bounds = [(float(v.min_value), float(v.max_value)) for v in ordered]
     bounds_by_id = {str(v.id): (float(v.min_value), float(v.max_value)) for v in ordered}
