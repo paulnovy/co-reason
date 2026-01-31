@@ -57,6 +57,9 @@ def test_optimize_random_ok(client: TestClient):
     assert len(data["history"]) == 5
     assert str(v1) in data["best_point"]
     assert str(v2) in data["best_point"]
+    assert "domain" in data["meta"]
+    assert str(v1) in data["meta"]["domain"]
+    assert str(v2) in data["meta"]["domain"]
 
 
 def test_optimize_rejects_missing_domain(client: TestClient):

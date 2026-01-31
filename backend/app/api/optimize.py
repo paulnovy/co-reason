@@ -89,5 +89,10 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
         meta={
             "objective": "stub:maximize_normalized_sum",
             "best_score": best_score,
+            "variable_order": [v.id for v in ordered],
+            "domain": {
+                str(v.id): {"min": v.min_value, "max": v.max_value, "unit": v.unit}
+                for v in ordered
+            },
         },
     )
