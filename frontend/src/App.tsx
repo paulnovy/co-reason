@@ -258,87 +258,145 @@ function App() {
                   </div>
                 </div>
 
-                <div className="text-sm font-medium">DOE settings</div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <div className="p-3 border rounded bg-white space-y-3">
+                    <div className="text-sm font-medium">DOE settings</div>
 
-                <div className="flex gap-3 items-center">
-                  <label className="text-sm">Method</label>
-                  <select
-                    className="border rounded px-2 py-1"
-                    value={method}
-                    onChange={(e) => setMethod(e.target.value as any)}
-                  >
-                    <option value="sobol">sobol</option>
-                    <option value="lhs">lhs</option>
-                  </select>
-
-                  <label className="text-sm ml-4">Points</label>
-                  <input
-                    className="border rounded px-2 py-1 w-24"
-                    type="number"
-                    min={1}
-                    max={5000}
-                    value={nPoints}
-                    onChange={(e) => setNPoints(parseInt(e.target.value || '1', 10))}
-                  />
-                </div>
-
-                <div>
-                  <div className="text-sm mb-2">Variables</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {variables.map((v) => (
-                      <label key={v.id} className="flex items-center gap-2 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                      <div>
+                        <label className="text-xs text-gray-600">Method</label>
+                        <select
+                          className="border rounded px-2 py-1 w-full bg-white"
+                          value={method}
+                          onChange={(e) => setMethod(e.target.value as any)}
+                        >
+                          <option value="sobol">Sobol (space-filling)</option>
+                          <option value="lhs">LHS (stratified)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600">Points</label>
                         <input
-                          type="checkbox"
-                          checked={!!selectedIds[v.id]}
-                          onChange={(e) => setSelectedIds((prev) => ({ ...prev, [v.id]: e.target.checked }))}
+                          className="border rounded px-2 py-1 w-full"
+                          type="number"
+                          min={1}
+                          max={5000}
+                          value={nPoints}
+                          onChange={(e) => setNPoints(parseInt(e.target.value || '1', 10))}
                         />
-                        <span className="flex items-center gap-2">
-                          <span>{v.name}</span>
-                          {sourceBadge(v.source)}
-                        </span>
-                        <span className="text-xs text-gray-400">[{v.min_value ?? '—'}..{v.max_value ?? '—'}]</span>
-                      </label>
-                    ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded w-full"
+                          onClick={async () => {
+                            setDoeError(null);
+                            setDoeResult(null);
+                            const variable_ids = Object.entries(selectedIds)
+                              .filter(([, v]) => v)
+                              .map(([k]) => parseInt(k, 10));
+                            if (variable_ids.length === 0) {
+                              setDoeError('Wybierz co najmniej jedną zmienną.');
+                              return;
+                            }
+                            try {
+                              const data = await fetchJson('/experiments/doe', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ variable_ids, n_points: nPoints, method }),
+                              });
+                              setDoeResult(data);
+                              persistRun(
+                                'doe',
+                                `DOE (${method}, n=${nPoints})`,
+                                { variable_ids, n_points: nPoints, method },
+                                data
+                              );
+                            } catch (err: any) {
+                              setDoeError(err?.message || String(err));
+                            }
+                          }}
+                        >
+                          Generate DOE
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                      <div className="text-xs text-gray-500">
+                        Selected: {Object.values(selectedIds).filter(Boolean).length}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                          type="button"
+                          onClick={() => {
+                            const next: Record<number, boolean> = {};
+                            for (const v of variables) next[v.id] = true;
+                            setSelectedIds(next);
+                          }}
+                        >
+                          Select all
+                        </button>
+                        <button
+                          className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                          type="button"
+                          onClick={() => setSelectedIds({})}
+                        >
+                          Clear
+                        </button>
+                        <button
+                          className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                          type="button"
+                          onClick={() => { setTab('variables'); setDoeOpen(false); setDoeError(null); setDoeResult(null); }}
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex gap-2">
-                  <button
-                    className="px-4 py-2 bg-blue-600 text-white rounded"
-                    onClick={async () => {
-                      setDoeError(null);
-                      setDoeResult(null);
-                      const variable_ids = Object.entries(selectedIds)
-                        .filter(([, v]) => v)
-                        .map(([k]) => parseInt(k, 10));
-                      if (variable_ids.length === 0) {
-                        setDoeError('Select at least one variable.');
-                        return;
-                      }
-                      try {
-                        const data = await fetchJson('/experiments/doe', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ variable_ids, n_points: nPoints, method }),
-                        });
-                        setDoeResult(data);
-                        persistRun(
-                          'doe',
-                          `DOE (${method}, n=${nPoints})`,
-                          { variable_ids, n_points: nPoints, method },
-                          data
-                        );
-                      } catch (err: any) {
-                        setDoeError(err?.message || String(err));
-                      }
-                    }}
-                  >
-                    Generate
-                  </button>
+                  <div className="p-3 border rounded bg-white space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium">Variables</div>
+                        <div className="text-xs text-gray-500">Zaznacz zmienne, które mają wejść do DOE.</div>
+                      </div>
+                    </div>
 
-                  <button className="px-4 py-2 border rounded" onClick={() => { setTab('variables'); setDoeOpen(false); setDoeError(null); setDoeResult(null); }}>
-                    Close
-                  </button>
+                    <div className="max-h-72 overflow-auto border rounded">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="p-2 w-10"></th>
+                            <th className="p-2 text-left">Name</th>
+                            <th className="p-2 text-left">Domain</th>
+                            <th className="p-2 text-left">Source</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {variables.map((v) => (
+                            <tr key={v.id} className="border-t hover:bg-gray-50">
+                              <td className="p-2">
+                                <input
+                                  type="checkbox"
+                                  checked={!!selectedIds[v.id]}
+                                  onChange={(e) => setSelectedIds((prev) => ({ ...prev, [v.id]: e.target.checked }))}
+                                />
+                              </td>
+                              <td className="p-2">
+                                <div className="text-gray-900">{v.name}</div>
+                                <div className="text-[10px] text-gray-500">id={v.id}</div>
+                              </td>
+                              <td className="p-2 text-gray-600">
+                                [{v.min_value ?? '—'}..{v.max_value ?? '—'}] {v.unit || ''}
+                              </td>
+                              <td className="p-2">{sourceBadge(v.source)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
 
                 {doeError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{doeError}</pre>}
