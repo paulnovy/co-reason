@@ -18,6 +18,7 @@ class OptimizeRequest(BaseModel):
     n_iter: int = Field(30, ge=1, le=5000)
     method: OptimizeMethod = Field(OptimizeMethod.random)
     seed: Optional[int] = None
+    initial_points: List[Dict[str, float]] = Field(default_factory=list)
 
 
 class OptimizeResponse(BaseModel):
@@ -61,23 +62,48 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
 
     rng = random.Random(req.seed)
 
+    bounds = [(float(v.min_value), float(v.max_value)) for v in ordered]
+    bounds_by_id = {str(v.id): (float(v.min_value), float(v.max_value)) for v in ordered}
+
+    def score_point(p: Dict[str, Any]) -> float:
+        score = 0.0
+        for (v, (lo, hi)) in zip(ordered, bounds):
+            x = float(p[str(v.id)])
+            score += (x - lo) / (hi - lo) if hi > lo else 0.0
+        return score
+
     history: List[Dict[str, Any]] = []
-    # Stub objective: maximize sum of normalized values (placeholder)
     best_score = float("-inf")
     best_point: Dict[str, Any] = {}
 
-    bounds = [(float(v.min_value), float(v.max_value)) for v in ordered]
-
-    for _ in range(req.n_iter):
+    # Optional initial points (e.g., from DOE)
+    for p_in in req.initial_points:
         p: Dict[str, Any] = {}
-        score = 0.0
-        for (v, (lo, hi)) in zip(ordered, bounds):
-            x = lo + (hi - lo) * rng.random()
-            p[str(v.id)] = x
-            score += (x - lo) / (hi - lo) if hi > lo else 0.0
+        for v in ordered:
+            key = str(v.id)
+            if key not in p_in:
+                raise HTTPException(status_code=422, detail={"reason": "initial_points missing key", "missing_key": key})
+            x = float(p_in[key])
+            lo, hi = bounds_by_id[key]
+            if x < lo or x > hi:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={"reason": "initial_points out of domain", "variable_id": v.id, "value": x, "min": lo, "max": hi},
+                )
+            p[key] = x
         history.append(p)
-        if score > best_score:
-            best_score = score
+        s = score_point(p)
+        if s > best_score:
+            best_score = s
+            best_point = p
+
+    # Random search iterations (stub)
+    for _ in range(req.n_iter):
+        p = {str(v.id): (lo + (hi - lo) * rng.random()) for (v, (lo, hi)) in zip(ordered, bounds)}
+        history.append(p)
+        s = score_point(p)
+        if s > best_score:
+            best_score = s
             best_point = p
 
     return OptimizeResponse(
@@ -89,6 +115,7 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
         meta={
             "objective": "stub:maximize_normalized_sum",
             "best_score": best_score,
+            "initial_points": len(req.initial_points),
             "variable_order": [v.id for v in ordered],
             "domain": {
                 str(v.id): {"min": v.min_value, "max": v.max_value, "unit": v.unit}

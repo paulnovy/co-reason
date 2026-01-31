@@ -308,7 +308,24 @@ function App() {
                 </div>
 
                 <div>
-                  <div className="text-sm mb-2">Variables (reuse DOE selection)</div>
+                  <div className="text-sm mb-2 flex items-center justify-between gap-2">
+                    <span>Variables (reuse DOE selection)</span>
+                    <button
+                      className="px-3 py-1 border rounded text-xs"
+                      onClick={() => {
+                        if (!doeResult?.points || !doeResult?.variable_ids) {
+                          setOptimizeError('No DOE points available. Run DOE first.');
+                          return;
+                        }
+                        // Auto-select DOE variables
+                        const next: Record<number, boolean> = {};
+                        for (const vid of doeResult.variable_ids) next[vid] = true;
+                        setSelectedIds(next);
+                      }}
+                    >
+                      Use DOE vars
+                    </button>
+                  </div>
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="text-xs text-gray-500">
                       Wybrane: {Object.entries(selectedIds).filter(([, v]) => v).length}
@@ -347,10 +364,24 @@ function App() {
                       }
                       try {
                         const seed = optSeedRaw.trim() === '' ? null : parseInt(optSeedRaw, 10);
+                        const initial_points = (doeResult?.points && doeResult?.variable_ids)
+                          ? doeResult.points.map((p: any) => {
+                              const out: Record<string, number> = {};
+                              for (const vid of doeResult.variable_ids) out[String(vid)] = Number(p[String(vid)]);
+                              return out;
+                            })
+                          : [];
+
                         const data = await fetchJson('/experiments/optimize', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ variable_ids, n_iter: nIter, method: optMethod, seed: Number.isFinite(seed as any) ? seed : null }),
+                          body: JSON.stringify({
+                            variable_ids,
+                            n_iter: nIter,
+                            method: optMethod,
+                            seed: Number.isFinite(seed as any) ? seed : null,
+                            initial_points,
+                          }),
                         });
                         setOptimizeResult(data);
                       } catch (err: any) {

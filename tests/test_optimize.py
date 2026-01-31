@@ -72,3 +72,40 @@ def test_optimize_rejects_missing_domain(client: TestClient):
         json={"variable_ids": [vid], "n_iter": 3, "method": "random"},
     )
     assert resp.status_code == 422
+
+
+def test_optimize_accepts_initial_points(client: TestClient):
+    v1 = _create_var(client, "o3", 0.0, 1.0)
+    v2 = _create_var(client, "o4", -2.0, 2.0)
+
+    resp = client.post(
+        "/experiments/optimize",
+        json={
+            "variable_ids": [v1, v2],
+            "n_iter": 2,
+            "method": "random",
+            "seed": 1,
+            "initial_points": [{str(v1): 0.5, str(v2): 0.0}],
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    # history = initial_points + random iterations
+    assert len(data["history"]) == 3
+    assert data["meta"]["initial_points"] == 1
+
+
+def test_optimize_rejects_initial_points_out_of_domain(client: TestClient):
+    v1 = _create_var(client, "o5", 0.0, 1.0)
+
+    resp = client.post(
+        "/experiments/optimize",
+        json={
+            "variable_ids": [v1],
+            "n_iter": 1,
+            "method": "random",
+            "seed": 1,
+            "initial_points": [{str(v1): 2.0}],
+        },
+    )
+    assert resp.status_code == 422
