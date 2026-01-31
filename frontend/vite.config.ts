@@ -10,6 +10,8 @@ export default defineConfig({
     proxy: {
       '/variables': 'http://localhost:8000',
       '/relationships': 'http://localhost:8000',
+      '/experiments': 'http://localhost:8000',
+      '/runs': 'http://localhost:8000',
     },
   },
 })

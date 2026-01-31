@@ -7,6 +7,10 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Runs history (persisted on backend)
+  const [runs, setRuns] = useState<any[]>([]);
+  const [runsError, setRunsError] = useState<string | null>(null);
+
   const fetchJson = async (url: string, options?: RequestInit) => {
     const resp = await fetch(url, options);
     const ct = resp.headers.get('content-type') || '';
@@ -22,11 +26,36 @@ function App() {
     return data;
   };
 
+  const refreshRuns = async () => {
+    try {
+      setRunsError(null);
+      const data = await fetchJson('/runs');
+      setRuns(data.items || []);
+    } catch (e: any) {
+      setRunsError(e?.message || String(e));
+    }
+  };
+
+  const persistRun = async (run_type: 'doe' | 'optimize', title: string, request_json: any, response_json: any) => {
+    try {
+      await fetchJson('/runs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ run_type, title, request_json, response_json }),
+      });
+      // fire-and-forget refresh
+      refreshRuns();
+    } catch {
+      // Ignore persistence errors in UI flow
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
         const data = (await fetchJson('/variables')) as VariableList;
         setVariables(data.items || []);
+        await refreshRuns();
       } catch (e: any) {
         setError(e?.message || 'Failed to load');
       } finally {
@@ -190,6 +219,12 @@ function App() {
                           body: JSON.stringify({ variable_ids, n_points: nPoints, method }),
                         });
                         setDoeResult(data);
+                        persistRun(
+                          'doe',
+                          `DOE (${method}, n=${nPoints})`,
+                          { variable_ids, n_points: nPoints, method },
+                          data
+                        );
                       } catch (err: any) {
                         setDoeError(err?.message || String(err));
                       }
@@ -461,6 +496,20 @@ function App() {
                           }),
                         });
                         setOptimizeResult(data);
+                        persistRun(
+                          'optimize',
+                          `Optimize (${objectiveKind} var ${objectiveVarId}, n=${nIter})`,
+                          {
+                            variable_ids,
+                            n_iter: nIter,
+                            method: optMethod,
+                            seed: Number.isFinite(seed as any) ? seed : null,
+                            objective: { kind: objectiveKind, variable_id: objectiveVarId },
+                            initial_points_count: initial_points.length,
+                            max_initial_points: Math.max(0, maxInitialPoints),
+                          },
+                          data
+                        );
                       } catch (err: any) {
                         setOptimizeError(err?.message || String(err));
                       }
@@ -590,17 +639,45 @@ function App() {
               </div>
             )}
 
-            <ul className="space-y-2">
-              {variables.map((v) => (
-                <li key={v.id} className="p-3 bg-white rounded border border-gray-200">
-                  <div className="font-medium flex items-center justify-between gap-2">
-                    <span>{v.name}</span>
-                    {sourceBadge(v.source)}
-                  </div>
-                  <div className="text-xs text-gray-500">{String(v.variable_type)}</div>
-                </li>
-              ))}
-            </ul>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <div className="text-sm font-medium mb-2">Variables</div>
+                <ul className="space-y-2">
+                  {variables.map((v) => (
+                    <li key={v.id} className="p-3 bg-white rounded border border-gray-200">
+                      <div className="font-medium flex items-center justify-between gap-2">
+                        <span>{v.name}</span>
+                        {sourceBadge(v.source)}
+                      </div>
+                      <div className="text-xs text-gray-500">{String(v.variable_type)}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium">Run history</div>
+                  <button className="px-3 py-1 border rounded text-xs" onClick={refreshRuns}>Refresh</button>
+                </div>
+                {runsError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{runsError}</pre>}
+                <div className="space-y-2">
+                  {runs.length === 0 ? (
+                    <div className="text-xs text-gray-500">No runs saved yet.</div>
+                  ) : (
+                    runs.slice(0, 25).map((r: any) => (
+                      <div key={r.id} className="p-3 bg-white rounded border border-gray-200">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium text-sm">{r.title || `${r.run_type} #${r.id}`}</div>
+                          <div className="text-[10px] text-gray-500">{r.run_type} • #{r.id}</div>
+                        </div>
+                        <div className="text-[10px] text-gray-500 mt-1">{r.created_at}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </main>
