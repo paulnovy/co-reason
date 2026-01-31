@@ -503,6 +503,9 @@ function App() {
                       <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span>best_score: {Number(optimizeResult?.meta?.best_score ?? NaN).toFixed(4)}</span>
                         <span>
+                          objective: {optimizeResult?.meta?.objective?.kind || '—'} (var {optimizeResult?.meta?.objective?.variable_id ?? '—'})
+                        </span>
+                        <span>
                           seeded: {optimizeResult?.meta?.initial_points ?? 0}
                           {optimizeResult?.meta?.max_initial_points !== undefined ? ` / max ${optimizeResult.meta.max_initial_points}` : ''}
                         </span>
