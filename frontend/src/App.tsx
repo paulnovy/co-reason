@@ -52,6 +52,15 @@ function App() {
   const [optSeedRaw, setOptSeedRaw] = useState<string>('1');
   const [objectiveKind, setObjectiveKind] = useState<'maximize_variable' | 'minimize_variable'>('maximize_variable');
   const [objectiveVarId, setObjectiveVarId] = useState<number>(1);
+
+  useEffect(() => {
+    if (variables.length > 0) {
+      setObjectiveVarId((prev) => {
+        if (variables.some((v) => v.id === prev)) return prev;
+        return variables[0].id;
+      });
+    }
+  }, [variables]);
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [useDoeAsInitial, setUseDoeAsInitial] = useState(true);
