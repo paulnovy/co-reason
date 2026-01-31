@@ -78,7 +78,7 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
     rng = random.Random(req.seed)
 
     # Objective validation
-    if req.objective.kind in (ObjectiveKind.maximize_variable, ObjectiveKind.minimize_variable):
+    if req.objective.kind in (ObjectiveKind.maximize_variable, ObjectiveKind.minimize_variable, ObjectiveKind.target):
         if req.objective.variable_id not in req.variable_ids:
             raise HTTPException(
                 status_code=422,
@@ -87,6 +87,10 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
                     "variable_id": req.objective.variable_id,
                 },
             )
+        if req.objective.kind == ObjectiveKind.target and req.objective.target is None:
+            raise HTTPException(status_code=422, detail={"reason": "objective.target is required"})
+        if req.objective.kind == ObjectiveKind.target and req.objective.loss not in ("abs", "squared"):
+            raise HTTPException(status_code=422, detail={"reason": "objective.loss must be abs|squared"})
     elif req.objective.kind == ObjectiveKind.linear:
         term_ids = [t.variable_id for t in (req.objective.terms or [])]
         if not term_ids:

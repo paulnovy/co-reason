@@ -82,9 +82,11 @@ function App() {
   const [nIter, setNIter] = useState(30);
   const [optMethod, setOptMethod] = useState<'random'>('random');
   const [optSeedRaw, setOptSeedRaw] = useState<string>('1');
-  const [objectiveKind, setObjectiveKind] = useState<'maximize_variable' | 'minimize_variable' | 'linear'>('maximize_variable');
+  const [objectiveKind, setObjectiveKind] = useState<'maximize_variable' | 'minimize_variable' | 'linear' | 'target'>('maximize_variable');
   const [objectiveVarId, setObjectiveVarId] = useState<number>(1);
   const [linearWeights, setLinearWeights] = useState<Record<number, string>>({});
+  const [targetValueRaw, setTargetValueRaw] = useState<string>('');
+  const [targetLoss, setTargetLoss] = useState<'abs' | 'squared'>('abs');
 
   useEffect(() => {
     if (variables.length > 0) {
@@ -344,6 +346,7 @@ function App() {
                     <option value="maximize_variable">maximize</option>
                     <option value="minimize_variable">minimize</option>
                     <option value="linear">linear</option>
+                    <option value="target">target</option>
                   </select>
 
                   {objectiveKind !== 'linear' ? (
@@ -379,6 +382,29 @@ function App() {
                           </label>
                         ))}
                       <span className="text-xs text-gray-500">(first 5 selected vars)</span>
+                    </div>
+                  )}
+
+                  {objectiveKind === 'target' && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label className="text-xs text-gray-600">target</label>
+                      <input
+                        className="border rounded px-2 py-1 w-28"
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="e.g. 10"
+                        value={targetValueRaw}
+                        onChange={(e) => setTargetValueRaw(e.target.value)}
+                      />
+                      <label className="text-xs text-gray-600 ml-2">loss</label>
+                      <select
+                        className="border rounded px-2 py-1"
+                        value={targetLoss}
+                        onChange={(e) => setTargetLoss(e.target.value as any)}
+                      >
+                        <option value="abs">abs</option>
+                        <option value="squared">squared</option>
+                      </select>
                     </div>
                   )}
 
@@ -515,6 +541,14 @@ function App() {
                           return;
                         }
                       }
+
+                      if (objectiveKind === 'target') {
+                        const t = parseFloat(targetValueRaw);
+                        if (!Number.isFinite(t)) {
+                          setOptimizeError('Target objective: target must be a number.');
+                          return;
+                        }
+                      }
                       try {
                         const seed = optSeedRaw.trim() === '' ? null : parseInt(optSeedRaw, 10);
                         const doeInitial = (doeResult?.points && doeResult?.variable_ids)
@@ -544,7 +578,14 @@ function App() {
                                     .map((vid) => ({ variable_id: vid, weight: parseFloat(linearWeights[vid] ?? '0') }))
                                     .filter((t) => Number.isFinite(t.weight) && t.weight !== 0),
                                 }
-                              : { kind: objectiveKind, variable_id: objectiveVarId },
+                              : objectiveKind === 'target'
+                                ? {
+                                    kind: 'target',
+                                    variable_id: objectiveVarId,
+                                    target: parseFloat(targetValueRaw),
+                                    loss: targetLoss,
+                                  }
+                                : { kind: objectiveKind, variable_id: objectiveVarId },
                             initial_points,
                             max_initial_points: Math.max(0, maxInitialPoints),
                           }),
@@ -552,7 +593,7 @@ function App() {
                         setOptimizeResult(data);
                         persistRun(
                           'optimize',
-                          `Optimize (${objectiveKind} ${idToName[objectiveVarId] || `var ${objectiveVarId}`}, n=${nIter})`,
+                          `Optimize (${objectiveKind}${objectiveKind === 'target' ? `→${targetValueRaw}` : ''} ${idToName[objectiveVarId] || `var ${objectiveVarId}`}, n=${nIter})`,
                           {
                             variable_ids,
                             n_iter: nIter,
@@ -565,7 +606,14 @@ function App() {
                                     .map((vid) => ({ variable_id: vid, weight: parseFloat(linearWeights[vid] ?? '0') }))
                                     .filter((t) => Number.isFinite(t.weight) && t.weight !== 0),
                                 }
-                              : { kind: objectiveKind, variable_id: objectiveVarId },
+                              : objectiveKind === 'target'
+                                ? {
+                                    kind: 'target',
+                                    variable_id: objectiveVarId,
+                                    target: parseFloat(targetValueRaw),
+                                    loss: targetLoss,
+                                  }
+                                : { kind: objectiveKind, variable_id: objectiveVarId },
                             initial_points,
                             max_initial_points: Math.max(0, maxInitialPoints),
                           },
@@ -809,7 +857,13 @@ function App() {
                                   const ov = Number(full.response_json?.meta?.objective?.variable_id);
                                   if (Number.isFinite(ov)) setObjectiveVarId(ov);
                                   const ok = full.response_json?.meta?.objective?.kind;
-                                  if (ok === 'maximize_variable' || ok === 'minimize_variable') setObjectiveKind(ok);
+                                  if (ok === 'maximize_variable' || ok === 'minimize_variable' || ok === 'linear' || ok === 'target') setObjectiveKind(ok);
+                                  if (ok === 'target') {
+                                    const tv = full.response_json?.meta?.objective?.target;
+                                    if (tv !== undefined && tv !== null) setTargetValueRaw(String(tv));
+                                    const tl = full.response_json?.meta?.objective?.loss;
+                                    if (tl === 'abs' || tl === 'squared') setTargetLoss(tl);
+                                  }
                                 }
                               } catch (e: any) {
                                 setRunsError(e?.message || String(e));
@@ -860,7 +914,13 @@ function App() {
                                     const ov = Number(data?.meta?.objective?.variable_id);
                                     if (Number.isFinite(ov)) setObjectiveVarId(ov);
                                     const ok = data?.meta?.objective?.kind;
-                                    if (ok === 'maximize_variable' || ok === 'minimize_variable') setObjectiveKind(ok);
+                                    if (ok === 'maximize_variable' || ok === 'minimize_variable' || ok === 'linear' || ok === 'target') setObjectiveKind(ok);
+                                    if (ok === 'target') {
+                                      const tv = data?.meta?.objective?.target;
+                                      if (tv !== undefined && tv !== null) setTargetValueRaw(String(tv));
+                                      const tl = data?.meta?.objective?.loss;
+                                      if (tl === 'abs' || tl === 'squared') setTargetLoss(tl);
+                                    }
                                     persistRun('optimize', `${full.title || 'Optimize'} (replay)`, req, data);
                                   }
                                 } catch (e: any) {

@@ -18,3 +18,13 @@ def test_objective_linear():
     )
     # 2*x1 - 1*x2
     assert score_point({"1": 3.0, "2": 5.0}, obj) == 1.0
+
+
+def test_objective_target_abs():
+    obj = ObjectiveSpec(kind=ObjectiveKind.target, variable_id=1, target=10.0, loss="abs")
+    assert score_point({"1": 13.0}, obj) == -3.0
+
+
+def test_objective_target_squared():
+    obj = ObjectiveSpec(kind=ObjectiveKind.target, variable_id=1, target=10.0, loss="squared")
+    assert score_point({"1": 13.0}, obj) == -9.0

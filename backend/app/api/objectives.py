@@ -10,6 +10,7 @@ class ObjectiveKind(str, Enum):
     maximize_variable = "maximize_variable"
     minimize_variable = "minimize_variable"
     linear = "linear"
+    target = "target"
 
 
 class LinearTerm(BaseModel):
@@ -20,12 +21,16 @@ class LinearTerm(BaseModel):
 class ObjectiveSpec(BaseModel):
     kind: ObjectiveKind = Field(...)
 
-    # for maximize/minimize variable
+    # for maximize/minimize variable and target
     variable_id: Optional[int] = Field(None, ge=1)
     weight: float = Field(1.0)
 
     # for linear objective
     terms: List[LinearTerm] = Field(default_factory=list)
+
+    # for target objective
+    target: Optional[float] = None
+    loss: str = Field("abs", pattern="^(abs|squared)$")
 
     label: Optional[str] = None
 
@@ -53,5 +58,18 @@ def score_point(point: Dict[str, Any], obj: ObjectiveSpec) -> float:
         for t in obj.terms:
             score += float(t.weight) * float(point[str(t.variable_id)])
         return score
+
+    if obj.kind == ObjectiveKind.target:
+        if obj.variable_id is None:
+            raise ValueError("objective.variable_id is required")
+        if obj.target is None:
+            raise ValueError("objective.target is required")
+        x = float(point[str(obj.variable_id)])
+        t = float(obj.target)
+        if obj.loss == "squared":
+            # maximize negative squared distance
+            return -(x - t) ** 2
+        # default abs
+        return -abs(x - t)
 
     raise ValueError(f"Unsupported objective kind: {obj.kind}")

@@ -42,6 +42,13 @@ def summarize_optimize_result(variable_ids: List[int], best_point: Dict[str, flo
                 parts.append(f"{w_str}·{name or ('var ' + vid)}")
             more = "" if len(objective.get("terms")) <= 5 else f" (+{len(objective.get('terms'))-5} more)"
             bullets.append("Cel: linear: " + " + ".join(parts) + more + ".")
+        elif kind == "target" and objective.get("variable_id") is not None:
+            vid = str(objective.get("variable_id"))
+            tgt = objective.get("target")
+            loss = objective.get("loss") or "abs"
+            vname = variable_names.get(vid) if isinstance(variable_names, dict) else None
+            name = vname or ("var " + vid)
+            bullets.append(f"Cel: target ({name}) → {tgt} (loss={loss}).")
         elif objective.get("variable_id"):
             vid = str(objective.get("variable_id"))
             vname = None
