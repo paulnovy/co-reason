@@ -689,6 +689,7 @@ function App() {
                             e.preventDefault();
                             e.stopPropagation();
                             navigator.clipboard.writeText(JSON.stringify(runDetail.request_json, null, 2));
+                            setRunsError('Copied request_json to clipboard.');
                           }}
                         >
                           Copy
@@ -705,6 +706,7 @@ function App() {
                             e.preventDefault();
                             e.stopPropagation();
                             navigator.clipboard.writeText(JSON.stringify(runDetail.response_json, null, 2));
+                            setRunsError('Copied response_json to clipboard.');
                           }}
                         >
                           Copy
