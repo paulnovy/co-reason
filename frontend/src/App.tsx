@@ -413,6 +413,7 @@ function App() {
                             method: optMethod,
                             seed: Number.isFinite(seed as any) ? seed : null,
                             initial_points,
+                            max_initial_points: Math.max(0, maxInitialPoints),
                           }),
                         });
                         setOptimizeResult(data);
@@ -433,10 +434,14 @@ function App() {
 
                 {optimizeResult && (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="text-sm font-medium">Best point</div>
-                      <div className="text-xs text-gray-500">
-                        best_score: {Number(optimizeResult?.meta?.best_score ?? NaN).toFixed(4)}
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span>best_score: {Number(optimizeResult?.meta?.best_score ?? NaN).toFixed(4)}</span>
+                        <span>
+                          seeded: {optimizeResult?.meta?.initial_points ?? 0}
+                          {optimizeResult?.meta?.max_initial_points !== undefined ? ` / max ${optimizeResult.meta.max_initial_points}` : ''}
+                        </span>
                       </div>
                     </div>
                     <div className="overflow-auto border rounded">
