@@ -82,14 +82,23 @@ function App() {
   const [nIter, setNIter] = useState(30);
   const [optMethod, setOptMethod] = useState<'random'>('random');
   const [optSeedRaw, setOptSeedRaw] = useState<string>('1');
-  const [objectiveKind, setObjectiveKind] = useState<'maximize_variable' | 'minimize_variable'>('maximize_variable');
+  const [objectiveKind, setObjectiveKind] = useState<'maximize_variable' | 'minimize_variable' | 'linear'>('maximize_variable');
   const [objectiveVarId, setObjectiveVarId] = useState<number>(1);
+  const [linearWeights, setLinearWeights] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (variables.length > 0) {
       setObjectiveVarId((prev) => {
         if (variables.some((v) => v.id === prev)) return prev;
         return variables[0].id;
+      });
+
+      // initialize linear weights defaults if empty
+      setLinearWeights((prev) => {
+        if (Object.keys(prev || {}).length > 0) return prev;
+        const next: Record<number, string> = {};
+        for (const v of variables) next[v.id] = '0';
+        return next;
       });
     }
   }, [variables]);
@@ -334,19 +343,40 @@ function App() {
                   >
                     <option value="maximize_variable">maximize</option>
                     <option value="minimize_variable">minimize</option>
+                    <option value="linear">linear</option>
                   </select>
 
-                  <select
-                    className="border rounded px-2 py-1"
-                    value={objectiveVarId}
-                    onChange={(e) => setObjectiveVarId(parseInt(e.target.value, 10))}
-                  >
-                    {variables.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name} (id={v.id})
-                      </option>
-                    ))}
-                  </select>
+                  {objectiveKind !== 'linear' ? (
+                    <select
+                      className="border rounded px-2 py-1"
+                      value={objectiveVarId}
+                      onChange={(e) => setObjectiveVarId(parseInt(e.target.value, 10))}
+                    >
+                      {variables.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name} (id={v.id})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {variables.slice(0, 5).map((v) => (
+                        <label key={v.id} className="flex items-center gap-1 text-xs">
+                          <span className="text-gray-600">w({v.id})</span>
+                          <input
+                            className="border rounded px-2 py-1 w-20"
+                            type="text"
+                            inputMode="decimal"
+                            value={linearWeights[v.id] ?? '0'}
+                            onChange={(e) => setLinearWeights((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                            placeholder="0"
+                            title={v.name}
+                          />
+                        </label>
+                      ))}
+                      <span className="text-xs text-gray-500">(first 5 vars)</span>
+                    </div>
+                  )}
 
                   <label className="text-sm ml-4">Iterations</label>
                   <input
@@ -467,9 +497,19 @@ function App() {
                         setOptimizeError('Select at least one variable.');
                         return;
                       }
-                      if (!variable_ids.includes(objectiveVarId)) {
+                      if (objectiveKind !== 'linear' && !variable_ids.includes(objectiveVarId)) {
                         setOptimizeError('Objective variable must be included in selected variables.');
                         return;
+                      }
+
+                      if (objectiveKind === 'linear') {
+                        const terms = variable_ids
+                          .map((vid) => ({ variable_id: vid, weight: parseFloat(linearWeights[vid] ?? '0') }))
+                          .filter((t) => Number.isFinite(t.weight) && t.weight !== 0);
+                        if (terms.length === 0) {
+                          setOptimizeError('Linear objective: set at least one non-zero weight.');
+                          return;
+                        }
                       }
                       try {
                         const seed = optSeedRaw.trim() === '' ? null : parseInt(optSeedRaw, 10);
@@ -493,7 +533,14 @@ function App() {
                             n_iter: nIter,
                             method: optMethod,
                             seed: Number.isFinite(seed as any) ? seed : null,
-                            objective: { kind: objectiveKind, variable_id: objectiveVarId },
+                            objective: objectiveKind === 'linear'
+                              ? {
+                                  kind: 'linear',
+                                  terms: variable_ids
+                                    .map((vid) => ({ variable_id: vid, weight: parseFloat(linearWeights[vid] ?? '0') }))
+                                    .filter((t) => Number.isFinite(t.weight) && t.weight !== 0),
+                                }
+                              : { kind: objectiveKind, variable_id: objectiveVarId },
                             initial_points,
                             max_initial_points: Math.max(0, maxInitialPoints),
                           }),
@@ -507,7 +554,14 @@ function App() {
                             n_iter: nIter,
                             method: optMethod,
                             seed: Number.isFinite(seed as any) ? seed : null,
-                            objective: { kind: objectiveKind, variable_id: objectiveVarId },
+                            objective: objectiveKind === 'linear'
+                              ? {
+                                  kind: 'linear',
+                                  terms: variable_ids
+                                    .map((vid) => ({ variable_id: vid, weight: parseFloat(linearWeights[vid] ?? '0') }))
+                                    .filter((t) => Number.isFinite(t.weight) && t.weight !== 0),
+                                }
+                              : { kind: objectiveKind, variable_id: objectiveVarId },
                             initial_points,
                             max_initial_points: Math.max(0, maxInitialPoints),
                           },
