@@ -720,6 +720,10 @@ function App() {
                                     setDoeResult(data);
                                     setDoeError(null);
                                     setDoeOpen(true);
+                                    // ensure selection matches
+                                    const next: Record<number, boolean> = {};
+                                    for (const vid of (data?.variable_ids || [])) next[Number(vid)] = true;
+                                    setSelectedIds(next);
                                     persistRun('doe', `${full.title || 'DOE'} (replay)`, req, data);
                                   }
                                   if (full.run_type === 'optimize') {
@@ -732,6 +736,13 @@ function App() {
                                     setOptimizeResult(data);
                                     setOptimizeError(null);
                                     setOptimizeOpen(true);
+                                    const next: Record<number, boolean> = {};
+                                    for (const vid of (data?.variable_ids || [])) next[Number(vid)] = true;
+                                    setSelectedIds(next);
+                                    const ov = Number(data?.meta?.objective?.variable_id);
+                                    if (Number.isFinite(ov)) setObjectiveVarId(ov);
+                                    const ok = data?.meta?.objective?.kind;
+                                    if (ok === 'maximize_variable' || ok === 'minimize_variable') setObjectiveKind(ok);
                                     persistRun('optimize', `${full.title || 'Optimize'} (replay)`, req, data);
                                   }
                                 } catch (e: any) {
