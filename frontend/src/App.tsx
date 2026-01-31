@@ -282,8 +282,26 @@ function App() {
 
                 <div>
                   <div className="text-sm mb-2">Variables (reuse DOE selection)</div>
-                  <div className="text-xs text-gray-500">
-                    Wybrane: {Object.entries(selectedIds).filter(([, v]) => v).length}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="text-xs text-gray-500">
+                      Wybrane: {Object.entries(selectedIds).filter(([, v]) => v).length}
+                    </div>
+                    <button
+                      className="px-3 py-1 border rounded text-xs"
+                      onClick={() => setSelectedIds({})}
+                    >
+                      Clear selection
+                    </button>
+                    <button
+                      className="px-3 py-1 border rounded text-xs"
+                      onClick={() => {
+                        const next: Record<number, boolean> = {};
+                        for (const v of variables) next[v.id] = true;
+                        setSelectedIds(next);
+                      }}
+                    >
+                      Select all
+                    </button>
                   </div>
                 </div>
 
@@ -322,7 +340,12 @@ function App() {
 
                 {optimizeResult && (
                   <div className="space-y-3">
-                    <div className="text-sm font-medium">Best point</div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-medium">Best point</div>
+                      <div className="text-xs text-gray-500">
+                        best_score: {Number(optimizeResult?.meta?.best_score ?? NaN).toFixed(4)}
+                      </div>
+                    </div>
                     <div className="overflow-auto border rounded">
                       <table className="min-w-full text-xs">
                         <thead className="bg-gray-50">
