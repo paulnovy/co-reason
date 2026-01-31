@@ -1,0 +1,1 @@
+Study spec.md thoroughly. Study implementation_plan.md thoroughly. Pick the highest leverage unchecked task. Complete it. Write a minimal verification (render check). Check it off.
