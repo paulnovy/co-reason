@@ -29,6 +29,13 @@ function App() {
   const [nPoints, setNPoints] = useState(20);
   const [doeResult, setDoeResult] = useState<any>(null);
   const [doeError, setDoeError] = useState<string | null>(null);
+
+  // Optimize UI (stub)
+  const [optimizeOpen, setOptimizeOpen] = useState(false);
+  const [nIter, setNIter] = useState(30);
+  const [optimizeResult, setOptimizeResult] = useState<any>(null);
+  const [optimizeError, setOptimizeError] = useState<string | null>(null);
+
   const idToName = useMemo(() => Object.fromEntries(variables.map(v => [v.id, v.name])), [variables]);
   const idToVar = useMemo(() => Object.fromEntries(variables.map(v => [v.id, v])), [variables]);
 
@@ -69,7 +76,7 @@ function App() {
           <VariableGraph variables={variables} isLoading={loading} />
         ) : (
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <button
                 className="px-4 py-2 bg-gray-900 text-white rounded"
                 onClick={() => setDoeOpen((v) => !v)}
@@ -77,6 +84,14 @@ function App() {
                 Run DOE
               </button>
               <div className="text-xs text-gray-500">Endpoint: POST /experiments/doe</div>
+
+              <button
+                className="px-4 py-2 bg-purple-700 text-white rounded"
+                onClick={() => setOptimizeOpen((v) => !v)}
+              >
+                Run Optimize
+              </button>
+              <div className="text-xs text-gray-500">Endpoint: POST /experiments/optimize</div>
             </div>
 
             {doeOpen && (
@@ -233,6 +248,118 @@ function App() {
                         </ul>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {optimizeOpen && (
+              <div className="p-4 bg-white rounded border border-gray-200 space-y-3">
+                <div className="text-sm font-medium">Optimize (stub)</div>
+
+                <div className="flex gap-3 items-center flex-wrap">
+                  <label className="text-sm">Iterations</label>
+                  <input
+                    className="border rounded px-2 py-1 w-28"
+                    type="number"
+                    min={1}
+                    max={5000}
+                    value={nIter}
+                    onChange={(e) => setNIter(parseInt(e.target.value || '1', 10))}
+                  />
+                  <span className="text-xs text-gray-500">(random within domain; placeholder objective)</span>
+                </div>
+
+                <div>
+                  <div className="text-sm mb-2">Variables (reuse DOE selection)</div>
+                  <div className="text-xs text-gray-500">
+                    Wybrane: {Object.entries(selectedIds).filter(([, v]) => v).length}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    className="px-4 py-2 bg-purple-700 text-white rounded"
+                    onClick={async () => {
+                      setOptimizeError(null);
+                      setOptimizeResult(null);
+                      const variable_ids = Object.entries(selectedIds)
+                        .filter(([, v]) => v)
+                        .map(([k]) => parseInt(k, 10));
+                      try {
+                        const resp = await fetch('/experiments/optimize', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ variable_ids, n_iter: nIter, method: 'random', seed: 1 }),
+                        });
+                        const data = await resp.json();
+                        if (!resp.ok) throw new Error(JSON.stringify(data));
+                        setOptimizeResult(data);
+                      } catch (err: any) {
+                        setOptimizeError(err?.message || String(err));
+                      }
+                    }}
+                  >
+                    Run
+                  </button>
+
+                  <button className="px-4 py-2 border rounded" onClick={() => { setOptimizeOpen(false); setOptimizeError(null); setOptimizeResult(null); }}>
+                    Close
+                  </button>
+                </div>
+
+                {optimizeError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{optimizeError}</pre>}
+
+                {optimizeResult && (
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium">Best point</div>
+                    <div className="overflow-auto border rounded">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {(optimizeResult.variable_ids || []).map((vid: number) => (
+                              <th key={vid} className="text-left p-2">
+                                <div className="flex items-center gap-2">
+                                  <span>{idToName[vid] || String(vid)}</span>
+                                  {sourceBadge(idToVar[vid]?.source)}
+                                </div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-t">
+                            {(optimizeResult.variable_ids || []).map((vid: number) => (
+                              <td key={vid} className="p-2">{Number(optimizeResult.best_point?.[String(vid)]).toFixed(4)}</td>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="text-sm font-medium">History (first 10)</div>
+                    <div className="overflow-auto border rounded">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left p-2">#</th>
+                            {(optimizeResult.variable_ids || []).map((vid: number) => (
+                              <th key={vid} className="text-left p-2">{idToName[vid] || String(vid)}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(optimizeResult.history || []).slice(0, 10).map((p: any, idx: number) => (
+                            <tr key={idx} className="border-t">
+                              <td className="p-2">{idx + 1}</td>
+                              {(optimizeResult.variable_ids || []).map((vid: number) => (
+                                <td key={vid} className="p-2">{Number(p[String(vid)]).toFixed(4)}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
