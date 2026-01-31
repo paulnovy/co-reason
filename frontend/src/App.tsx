@@ -7,17 +7,32 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchJson = async (url: string, options?: RequestInit) => {
+    const resp = await fetch(url, options);
+    const ct = resp.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(
+        `Expected JSON from ${url} (status ${resp.status}), got content-type=${ct}. ` +
+          `Body starts with: ${JSON.stringify(text.slice(0, 120))}`
+      );
+    }
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(JSON.stringify(data));
+    return data;
+  };
+
   useEffect(() => {
-    fetch('/variables')
-      .then((r) => r.json())
-      .then((data: VariableList) => {
+    (async () => {
+      try {
+        const data = (await fetchJson('/variables')) as VariableList;
         setVariables(data.items || []);
-        setLoading(false);
-      })
-      .catch((e) => {
+      } catch (e: any) {
         setError(e?.message || 'Failed to load');
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   const useGraph = import.meta.env.VITE_USE_GRAPH === 'true';
@@ -151,13 +166,11 @@ function App() {
                         .filter(([, v]) => v)
                         .map(([k]) => parseInt(k, 10));
                       try {
-                        const resp = await fetch('/experiments/doe', {
+                        const data = await fetchJson('/experiments/doe', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ variable_ids, n_points: nPoints, method }),
                         });
-                        const data = await resp.json();
-                        if (!resp.ok) throw new Error(JSON.stringify(data));
                         setDoeResult(data);
                       } catch (err: any) {
                         setDoeError(err?.message || String(err));
@@ -182,7 +195,7 @@ function App() {
                         className="px-3 py-1 bg-emerald-600 text-white rounded text-xs"
                         onClick={async () => {
                           try {
-                            const resp = await fetch('/experiments/doe/insight', {
+                            const data = await fetchJson('/experiments/doe/insight', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
@@ -190,8 +203,6 @@ function App() {
                                 points: doeResult.points,
                               }),
                             });
-                            const data = await resp.json();
-                            if (!resp.ok) throw new Error(JSON.stringify(data));
                             setDoeResult((prev: any) => ({ ...prev, insight: data }));
                           } catch (err: any) {
                             setDoeError(err?.message || String(err));
@@ -315,13 +326,11 @@ function App() {
                         .filter(([, v]) => v)
                         .map(([k]) => parseInt(k, 10));
                       try {
-                        const resp = await fetch('/experiments/optimize', {
+                        const data = await fetchJson('/experiments/optimize', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ variable_ids, n_iter: nIter, method: 'random', seed: optSeed }),
                         });
-                        const data = await resp.json();
-                        if (!resp.ok) throw new Error(JSON.stringify(data));
                         setOptimizeResult(data);
                       } catch (err: any) {
                         setOptimizeError(err?.message || String(err));
