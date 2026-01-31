@@ -666,44 +666,59 @@ function App() {
                     <div className="text-xs text-gray-500">No runs saved yet.</div>
                   ) : (
                     runs.slice(0, 25).map((r: any) => (
-                      <button
-                        key={r.id}
-                        className="w-full text-left p-3 bg-white rounded border border-gray-200 hover:bg-gray-50"
-                        onClick={() => {
-                          try {
-                            if (r.run_type === 'doe') {
-                              setDoeResult(r.response_json);
-                              setDoeError(null);
-                              setDoeOpen(true);
-                              // also set selection to match variable_ids
-                              const next: Record<number, boolean> = {};
-                              for (const vid of (r.response_json?.variable_ids || [])) next[Number(vid)] = true;
-                              setSelectedIds(next);
-                            }
-                            if (r.run_type === 'optimize') {
-                              setOptimizeResult(r.response_json);
-                              setOptimizeError(null);
-                              setOptimizeOpen(true);
-                              const next: Record<number, boolean> = {};
-                              for (const vid of (r.response_json?.variable_ids || [])) next[Number(vid)] = true;
-                              setSelectedIds(next);
-                              // try to restore objective from meta
-                              const ov = Number(r.response_json?.meta?.objective?.variable_id);
-                              if (Number.isFinite(ov)) setObjectiveVarId(ov);
-                              const ok = r.response_json?.meta?.objective?.kind;
-                              if (ok === 'maximize_variable' || ok === 'minimize_variable') setObjectiveKind(ok);
-                            }
-                          } catch {
-                            // ignore
-                          }
-                        }}
-                      >
+                      <div key={r.id} className="p-3 bg-white rounded border border-gray-200 hover:bg-gray-50">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="font-medium text-sm">{r.title || `${r.run_type} #${r.id}`}</div>
-                          <div className="text-[10px] text-gray-500">{r.run_type} • #{r.id}</div>
+                          <button
+                            className="text-left flex-1"
+                            onClick={() => {
+                              try {
+                                if (r.run_type === 'doe') {
+                                  setDoeResult(r.response_json);
+                                  setDoeError(null);
+                                  setDoeOpen(true);
+                                  const next: Record<number, boolean> = {};
+                                  for (const vid of (r.response_json?.variable_ids || [])) next[Number(vid)] = true;
+                                  setSelectedIds(next);
+                                }
+                                if (r.run_type === 'optimize') {
+                                  setOptimizeResult(r.response_json);
+                                  setOptimizeError(null);
+                                  setOptimizeOpen(true);
+                                  const next: Record<number, boolean> = {};
+                                  for (const vid of (r.response_json?.variable_ids || [])) next[Number(vid)] = true;
+                                  setSelectedIds(next);
+                                  const ov = Number(r.response_json?.meta?.objective?.variable_id);
+                                  if (Number.isFinite(ov)) setObjectiveVarId(ov);
+                                  const ok = r.response_json?.meta?.objective?.kind;
+                                  if (ok === 'maximize_variable' || ok === 'minimize_variable') setObjectiveKind(ok);
+                                }
+                              } catch {
+                                // ignore
+                              }
+                            }}
+                          >
+                            <div className="font-medium text-sm">{r.title || `${r.run_type} #${r.id}`}</div>
+                            <div className="text-[10px] text-gray-500 mt-1">{r.created_at}</div>
+                          </button>
+
+                          <div className="flex items-center gap-2">
+                            <div className="text-[10px] text-gray-500">{r.run_type} • #{r.id}</div>
+                            <button
+                              className="px-2 py-1 border rounded text-[10px]"
+                              onClick={async () => {
+                                try {
+                                  await fetchJson(`/runs/${r.id}`, { method: 'DELETE' });
+                                  refreshRuns();
+                                } catch (e: any) {
+                                  setRunsError(e?.message || String(e));
+                                }
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                        <div className="text-[10px] text-gray-500 mt-1">{r.created_at}</div>
-                      </button>
+                      </div>
                     ))
                   )}
                 </div>

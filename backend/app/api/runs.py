@@ -36,6 +36,10 @@ class RunResponse(BaseModel):
     updated_at: str
 
 
+class DeleteRunResponse(BaseModel):
+    ok: bool = True
+
+
 class RunListResponse(BaseModel):
     items: List[RunResponse]
     total: int
@@ -95,9 +99,22 @@ def list_runs(
 @router.get("/{run_id}", response_model=RunResponse)
 def get_run(run_id: int, db: Session = Depends(get_db)) -> RunResponse:
     obj = db.query(ExperimentRun).filter(ExperimentRun.id == run_id, ExperimentRun.is_active == True).first()
-    # NOTE: return empty-ish response if not found to keep UI simple (can harden later)
     if obj is None:
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="run not found")
     return _to_response(obj)
+
+
+@router.delete("/{run_id}", response_model=DeleteRunResponse)
+def delete_run(run_id: int, db: Session = Depends(get_db)) -> DeleteRunResponse:
+    obj = db.query(ExperimentRun).filter(ExperimentRun.id == run_id, ExperimentRun.is_active == True).first()
+    if obj is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="run not found")
+
+    obj.is_active = False
+    db.add(obj)
+    db.commit()
+    return DeleteRunResponse(ok=True)
