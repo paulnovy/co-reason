@@ -360,22 +360,25 @@ function App() {
                     </select>
                   ) : (
                     <div className="flex items-center gap-2 flex-wrap">
-                      {variables.slice(0, 5).map((v) => (
-                        <label key={v.id} className="flex items-center gap-1 text-xs">
-                          <span className="text-gray-600">w({v.id})</span>
-                          <input
-                            className="border rounded px-2 py-1 w-20"
-                            type="text"
-                            inputMode="decimal"
-                            value={linearWeights[v.id] ?? '0'}
-                            onChange={(e) => setLinearWeights((prev) => ({ ...prev, [v.id]: e.target.value }))}
-                            placeholder="0"
-                            title={v.name}
-                          />
-                          <span className="text-gray-500 truncate max-w-[140px]">{v.name}</span>
-                        </label>
-                      ))}
-                      <span className="text-xs text-gray-500">(first 5 vars)</span>
+                      {variables
+                        .filter((v) => !!selectedIds[v.id])
+                        .slice(0, 5)
+                        .map((v) => (
+                          <label key={v.id} className="flex items-center gap-1 text-xs">
+                            <span className="text-gray-600">w({v.id})</span>
+                            <input
+                              className="border rounded px-2 py-1 w-20"
+                              type="text"
+                              inputMode="decimal"
+                              value={linearWeights[v.id] ?? '0'}
+                              onChange={(e) => setLinearWeights((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                              placeholder="0"
+                              title={v.name}
+                            />
+                            <span className="text-gray-500 truncate max-w-[140px]">{v.name}</span>
+                          </label>
+                        ))}
+                      <span className="text-xs text-gray-500">(first 5 selected vars)</span>
                     </div>
                   )}
 
