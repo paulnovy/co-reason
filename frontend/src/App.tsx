@@ -372,6 +372,7 @@ function App() {
                             placeholder="0"
                             title={v.name}
                           />
+                          <span className="text-gray-500 truncate max-w-[140px]">{v.name}</span>
                         </label>
                       ))}
                       <span className="text-xs text-gray-500">(first 5 vars)</span>
