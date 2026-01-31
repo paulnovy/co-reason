@@ -17,8 +17,12 @@ def summarize_optimize_result(variable_ids: List[int], best_point: Dict[str, flo
     n_iter = int(meta.get("n_iter") or meta.get("iterations") or 0) if isinstance(meta, dict) else 0
     best_score = meta.get("best_score") if isinstance(meta, dict) else None
     seeded = meta.get("initial_points") if isinstance(meta, dict) else None
+    objective = meta.get("objective") if isinstance(meta, dict) else None
+    domain = meta.get("domain") if isinstance(meta, dict) else None
 
     bullets.append("Optymalizacja wykonana bezpiecznie w granicach domen zmiennych (twarde min/max).")
+    if isinstance(objective, dict) and objective.get("kind") and objective.get("variable_id"):
+        bullets.append(f"Cel: {objective.get('kind')} (variable_id={objective.get('variable_id')}).")
     if seeded is not None:
         bullets.append(f"Seedowanie punktami startowymi: {seeded}.")
     if n_iter:
@@ -33,7 +37,10 @@ def summarize_optimize_result(variable_ids: List[int], best_point: Dict[str, flo
     for vid in variable_ids:
         key = str(vid)
         if key in best_point:
-            bullets.append(f"Best point — zmienna {key}: {float(best_point[key]):.4f}.")
+            unit = ""
+            if isinstance(domain, dict):
+                unit = str((domain.get(key) or {}).get("unit") or "")
+            bullets.append(f"Best point — zmienna {key}: {float(best_point[key]):.4f}{unit}.")
         else:
             bullets.append(f"Best point — zmienna {key}: brak wartości (sprawdź payload).")
 
