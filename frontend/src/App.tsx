@@ -498,7 +498,7 @@ function App() {
                         setOptimizeResult(data);
                         persistRun(
                           'optimize',
-                          `Optimize (${objectiveKind} var ${objectiveVarId}, n=${nIter})`,
+                          `Optimize (${objectiveKind} ${idToName[objectiveVarId] || `var ${objectiveVarId}`}, n=${nIter})`,
                           {
                             variable_ids,
                             n_iter: nIter,
@@ -666,13 +666,32 @@ function App() {
                     <div className="text-xs text-gray-500">No runs saved yet.</div>
                   ) : (
                     runs.slice(0, 25).map((r: any) => (
-                      <div key={r.id} className="p-3 bg-white rounded border border-gray-200">
+                      <button
+                        key={r.id}
+                        className="w-full text-left p-3 bg-white rounded border border-gray-200 hover:bg-gray-50"
+                        onClick={() => {
+                          try {
+                            if (r.run_type === 'doe') {
+                              setDoeResult(r.response_json);
+                              setDoeError(null);
+                              setDoeOpen(true);
+                            }
+                            if (r.run_type === 'optimize') {
+                              setOptimizeResult(r.response_json);
+                              setOptimizeError(null);
+                              setOptimizeOpen(true);
+                            }
+                          } catch {
+                            // ignore
+                          }
+                        }}
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <div className="font-medium text-sm">{r.title || `${r.run_type} #${r.id}`}</div>
                           <div className="text-[10px] text-gray-500">{r.run_type} • #{r.id}</div>
                         </div>
                         <div className="text-[10px] text-gray-500 mt-1">{r.created_at}</div>
-                      </div>
+                      </button>
                     ))
                   )}
                 </div>
