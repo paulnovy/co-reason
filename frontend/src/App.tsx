@@ -356,6 +356,12 @@ function App() {
                         const next: Record<number, boolean> = {};
                         for (const vid of doeResult.variable_ids) next[vid] = true;
                         setSelectedIds(next);
+
+                        // Ensure objective variable is included
+                        setObjectiveVarId((prev) => {
+                          if (doeResult.variable_ids.includes(prev)) return prev;
+                          return doeResult.variable_ids[0] ?? prev;
+                        });
                       }}
                     >
                       Use DOE vars

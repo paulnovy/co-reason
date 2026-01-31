@@ -29,9 +29,9 @@ def summarize_optimize_result(variable_ids: List[int], best_point: Dict[str, flo
         bullets.append(f"Iteracje (random search): {n_iter}.")
     if best_score is not None:
         try:
-            bullets.append(f"Najlepszy score (stub): {float(best_score):.4f}.")
+            bullets.append(f"Najlepszy score: {float(best_score):.4f}.")
         except Exception:
-            bullets.append(f"Najlepszy score (stub): {best_score}.")
+            bullets.append(f"Najlepszy score: {best_score}.")
 
     # Render best_point values
     for vid in variable_ids:
