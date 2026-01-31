@@ -50,6 +50,8 @@ function App() {
   const [nIter, setNIter] = useState(30);
   const [optMethod, setOptMethod] = useState<'random'>('random');
   const [optSeedRaw, setOptSeedRaw] = useState<string>('1');
+  const [objectiveKind, setObjectiveKind] = useState<'maximize_variable' | 'minimize_variable'>('maximize_variable');
+  const [objectiveVarId, setObjectiveVarId] = useState<number>(1);
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [useDoeAsInitial, setUseDoeAsInitial] = useState(true);
@@ -277,7 +279,29 @@ function App() {
                 <div className="text-sm font-medium">Optimize (stub)</div>
 
                 <div className="flex gap-3 items-center flex-wrap">
-                  <label className="text-sm">Iterations</label>
+                  <label className="text-sm">Objective</label>
+                  <select
+                    className="border rounded px-2 py-1"
+                    value={objectiveKind}
+                    onChange={(e) => setObjectiveKind(e.target.value as any)}
+                  >
+                    <option value="maximize_variable">maximize</option>
+                    <option value="minimize_variable">minimize</option>
+                  </select>
+
+                  <select
+                    className="border rounded px-2 py-1"
+                    value={objectiveVarId}
+                    onChange={(e) => setObjectiveVarId(parseInt(e.target.value, 10))}
+                  >
+                    {variables.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} (id={v.id})
+                      </option>
+                    ))}
+                  </select>
+
+                  <label className="text-sm ml-4">Iterations</label>
                   <input
                     className="border rounded px-2 py-1 w-28"
                     type="number"
@@ -390,6 +414,10 @@ function App() {
                         setOptimizeError('Select at least one variable.');
                         return;
                       }
+                      if (!variable_ids.includes(objectiveVarId)) {
+                        setOptimizeError('Objective variable must be included in selected variables.');
+                        return;
+                      }
                       try {
                         const seed = optSeedRaw.trim() === '' ? null : parseInt(optSeedRaw, 10);
                         const doeInitial = (doeResult?.points && doeResult?.variable_ids)
@@ -412,6 +440,7 @@ function App() {
                             n_iter: nIter,
                             method: optMethod,
                             seed: Number.isFinite(seed as any) ? seed : null,
+                            objective: { kind: objectiveKind, variable_id: objectiveVarId },
                             initial_points,
                             max_initial_points: Math.max(0, maxInitialPoints),
                           }),
