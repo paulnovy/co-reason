@@ -52,6 +52,8 @@ function App() {
   const [optSeedRaw, setOptSeedRaw] = useState<string>('1');
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
+  const [useDoeAsInitial, setUseDoeAsInitial] = useState(true);
+  const [maxInitialPoints, setMaxInitialPoints] = useState(50);
 
   const idToName = useMemo(() => Object.fromEntries(variables.map(v => [v.id, v.name])), [variables]);
   const idToVar = useMemo(() => Object.fromEntries(variables.map(v => [v.id, v])), [variables]);
@@ -326,6 +328,32 @@ function App() {
                       Use DOE vars
                     </button>
                   </div>
+
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={useDoeAsInitial}
+                        onChange={(e) => setUseDoeAsInitial(e.target.checked)}
+                      />
+                      Seed with DOE points
+                      <span className="text-gray-500">
+                        ({doeResult?.points ? doeResult.points.length : 0})
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                      Max initial points
+                      <input
+                        className="border rounded px-2 py-1 w-20 text-xs"
+                        type="number"
+                        min={0}
+                        max={5000}
+                        value={maxInitialPoints}
+                        onChange={(e) => setMaxInitialPoints(parseInt(e.target.value || '0', 10))}
+                      />
+                    </label>
+                  </div>
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="text-xs text-gray-500">
                       Wybrane: {Object.entries(selectedIds).filter(([, v]) => v).length}
@@ -364,12 +392,16 @@ function App() {
                       }
                       try {
                         const seed = optSeedRaw.trim() === '' ? null : parseInt(optSeedRaw, 10);
-                        const initial_points = (doeResult?.points && doeResult?.variable_ids)
+                        const doeInitial = (doeResult?.points && doeResult?.variable_ids)
                           ? doeResult.points.map((p: any) => {
                               const out: Record<string, number> = {};
                               for (const vid of doeResult.variable_ids) out[String(vid)] = Number(p[String(vid)]);
                               return out;
                             })
+                          : [];
+
+                        const initial_points = useDoeAsInitial
+                          ? doeInitial.slice(0, Math.max(0, Number.isFinite(maxInitialPoints as any) ? maxInitialPoints : 0))
                           : [];
 
                         const data = await fetchJson('/experiments/optimize', {
