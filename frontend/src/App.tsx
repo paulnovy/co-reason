@@ -69,6 +69,9 @@ function App() {
 
   const useGraph = import.meta.env.VITE_USE_GRAPH === 'true';
 
+  type TabKey = 'variables' | 'doe' | 'optimize' | 'runs';
+  const [tab, setTab] = useState<TabKey>('variables');
+
   // DOE UI (baseline view)
   const [doeOpen, setDoeOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Record<number, boolean>>({});
@@ -105,6 +108,27 @@ function App() {
       });
     }
   }, [variables]);
+
+  // keep linearWeights populated for selected variables
+  useEffect(() => {
+    if (objectiveKind !== 'linear') return;
+    const selected = Object.entries(selectedIds)
+      .filter(([, v]) => v)
+      .map(([k]) => Number(k))
+      .filter((n) => Number.isFinite(n));
+    if (selected.length === 0) return;
+    setLinearWeights((prev) => {
+      const next = { ...(prev || {}) };
+      let changed = false;
+      for (const vid of selected) {
+        if (next[vid] === undefined) {
+          next[vid] = '0';
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [objectiveKind, selectedIds]);
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [useDoeAsInitial, setUseDoeAsInitial] = useState(true);
@@ -132,15 +156,42 @@ function App() {
 
   return (
     <div className="w-screen h-screen bg-gray-50 text-gray-900">
-      <header className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Product Optimizer</h1>
-          <p className="text-sm text-gray-500">
-            {useGraph ? 'ReactFlow grid (diagnostic)' : 'Variables list (stable)'}
-          </p>
+      <header className="border-b border-gray-200 bg-white">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Product Optimizer</h1>
+            <p className="text-sm text-gray-500">
+              {useGraph ? 'ReactFlow graph (diagnostic)' : 'DOE + optimization workspace'}
+            </p>
+          </div>
         </div>
-        <div className="text-xs text-gray-400">API: /variables → 8000 (proxy)</div>
+
+        {!useGraph && (
+          <div className="px-6 pb-3">
+            <nav className="inline-flex rounded-lg border bg-white overflow-hidden">
+              {([
+                { k: 'variables', label: 'Variables' },
+                { k: 'doe', label: 'DOE' },
+                { k: 'optimize', label: 'Optimize' },
+                { k: 'runs', label: 'Runs' },
+              ] as any[]).map((t) => (
+                <button
+                  key={t.k}
+                  type="button"
+                  onClick={() => setTab(t.k)}
+                  className={
+                    'px-4 py-2 text-sm border-r last:border-r-0 ' +
+                    (tab === t.k ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')
+                  }
+                >
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
       </header>
+
       <main className={useGraph ? 'w-full h-[calc(100vh-64px)]' : 'p-6'}>
         {error ? (
           <div className="text-red-600">{error}</div>
@@ -149,108 +200,203 @@ function App() {
         ) : useGraph ? (
           <VariableGraph variables={variables} isLoading={loading} />
         ) : (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <button
-                className="px-4 py-2 bg-gray-900 text-white rounded"
-                onClick={() => setDoeOpen((v) => !v)}
+                className={
+                  'p-4 rounded border text-left bg-white hover:bg-gray-50 ' +
+                  (tab === 'variables' ? 'border-gray-900' : 'border-gray-200')
+                }
+                onClick={() => setTab('variables')}
+                type="button"
               >
-                Run DOE
+                <div className="text-sm font-medium">Variables</div>
+                <div className="text-xs text-gray-500 mt-1">Lista zmiennych + domeny (min/max) i provenance.</div>
               </button>
-              <div className="text-xs text-gray-500">Endpoint: POST /experiments/doe</div>
-
               <button
-                className="px-4 py-2 bg-purple-700 text-white rounded"
-                onClick={() => setOptimizeOpen((v) => !v)}
+                className={
+                  'p-4 rounded border text-left bg-white hover:bg-gray-50 ' +
+                  (tab === 'doe' ? 'border-gray-900' : 'border-gray-200')
+                }
+                onClick={() => { setTab('doe'); setDoeOpen(true); }}
+                type="button"
               >
-                Run Optimize
+                <div className="text-sm font-medium">DOE</div>
+                <div className="text-xs text-gray-500 mt-1">Wygeneruj punkty eksperymentu w granicach domeny.</div>
               </button>
-              <div className="text-xs text-gray-500">Endpoint: POST /experiments/optimize</div>
+              <button
+                className={
+                  'p-4 rounded border text-left bg-white hover:bg-gray-50 ' +
+                  (tab === 'optimize' ? 'border-gray-900' : 'border-gray-200')
+                }
+                onClick={() => { setTab('optimize'); setOptimizeOpen(true); }}
+                type="button"
+              >
+                <div className="text-sm font-medium">Optimize</div>
+                <div className="text-xs text-gray-500 mt-1">Ustaw objective i znajdź najlepszy punkt (random search).</div>
+              </button>
             </div>
 
-            {doeOpen && (
+            {tab === 'variables' && (
               <div className="p-4 bg-white rounded border border-gray-200 space-y-3">
-                <div className="text-sm font-medium">DOE settings</div>
-
-                <div className="flex gap-3 items-center">
-                  <label className="text-sm">Method</label>
-                  <select
-                    className="border rounded px-2 py-1"
-                    value={method}
-                    onChange={(e) => setMethod(e.target.value as any)}
-                  >
-                    <option value="sobol">sobol</option>
-                    <option value="lhs">lhs</option>
-                  </select>
-
-                  <label className="text-sm ml-4">Points</label>
-                  <input
-                    className="border rounded px-2 py-1 w-24"
-                    type="number"
-                    min={1}
-                    max={5000}
-                    value={nPoints}
-                    onChange={(e) => setNPoints(parseInt(e.target.value || '1', 10))}
-                  />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium">Variables</div>
+                    <div className="text-xs text-gray-500">Kliknij DOE/Optimize w górnym menu, żeby uruchomić workflow.</div>
+                  </div>
                 </div>
+                <div className="text-xs text-gray-500">Zarządzanie (create/edit) zrobimy później — na razie to tylko podgląd + wybór do DOE/Optimize.</div>
+              </div>
+            )}
 
-                <div>
-                  <div className="text-sm mb-2">Variables</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {variables.map((v) => (
-                      <label key={v.id} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={!!selectedIds[v.id]}
-                          onChange={(e) => setSelectedIds((prev) => ({ ...prev, [v.id]: e.target.checked }))}
-                        />
-                        <span className="flex items-center gap-2">
-                          <span>{v.name}</span>
-                          {sourceBadge(v.source)}
-                        </span>
-                        <span className="text-xs text-gray-400">[{v.min_value ?? '—'}..{v.max_value ?? '—'}]</span>
-                      </label>
-                    ))}
+            {tab === 'doe' && doeOpen && (
+              <div className="p-4 bg-white rounded border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold">DOE</div>
+                    <div className="text-xs text-gray-500">Wygeneruj punkty eksperymentu w bezpiecznej domenie.</div>
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <button
-                    className="px-4 py-2 bg-blue-600 text-white rounded"
-                    onClick={async () => {
-                      setDoeError(null);
-                      setDoeResult(null);
-                      const variable_ids = Object.entries(selectedIds)
-                        .filter(([, v]) => v)
-                        .map(([k]) => parseInt(k, 10));
-                      if (variable_ids.length === 0) {
-                        setDoeError('Select at least one variable.');
-                        return;
-                      }
-                      try {
-                        const data = await fetchJson('/experiments/doe', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ variable_ids, n_points: nPoints, method }),
-                        });
-                        setDoeResult(data);
-                        persistRun(
-                          'doe',
-                          `DOE (${method}, n=${nPoints})`,
-                          { variable_ids, n_points: nPoints, method },
-                          data
-                        );
-                      } catch (err: any) {
-                        setDoeError(err?.message || String(err));
-                      }
-                    }}
-                  >
-                    Generate
-                  </button>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <div className="p-3 border rounded bg-white space-y-3">
+                    <div className="text-sm font-medium">DOE settings</div>
 
-                  <button className="px-4 py-2 border rounded" onClick={() => { setDoeOpen(false); setDoeError(null); setDoeResult(null); }}>
-                    Close
-                  </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                      <div>
+                        <label className="text-xs text-gray-600">Method</label>
+                        <select
+                          className="border rounded px-2 py-1 w-full bg-white"
+                          value={method}
+                          onChange={(e) => setMethod(e.target.value as any)}
+                        >
+                          <option value="sobol">Sobol (space-filling)</option>
+                          <option value="lhs">LHS (stratified)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600">Points</label>
+                        <input
+                          className="border rounded px-2 py-1 w-full"
+                          type="number"
+                          min={1}
+                          max={5000}
+                          value={nPoints}
+                          onChange={(e) => setNPoints(parseInt(e.target.value || '1', 10))}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded w-full"
+                          onClick={async () => {
+                            setDoeError(null);
+                            setDoeResult(null);
+                            const variable_ids = Object.entries(selectedIds)
+                              .filter(([, v]) => v)
+                              .map(([k]) => parseInt(k, 10));
+                            if (variable_ids.length === 0) {
+                              setDoeError('Wybierz co najmniej jedną zmienną.');
+                              return;
+                            }
+                            try {
+                              const data = await fetchJson('/experiments/doe', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ variable_ids, n_points: nPoints, method }),
+                              });
+                              setDoeResult(data);
+                              persistRun(
+                                'doe',
+                                `DOE (${method}, n=${nPoints})`,
+                                { variable_ids, n_points: nPoints, method },
+                                data
+                              );
+                            } catch (err: any) {
+                              setDoeError(err?.message || String(err));
+                            }
+                          }}
+                        >
+                          Generate DOE
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                      <div className="text-xs text-gray-500">
+                        Selected: {Object.values(selectedIds).filter(Boolean).length}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                          type="button"
+                          onClick={() => {
+                            const next: Record<number, boolean> = {};
+                            for (const v of variables) next[v.id] = true;
+                            setSelectedIds(next);
+                          }}
+                        >
+                          Select all
+                        </button>
+                        <button
+                          className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                          type="button"
+                          onClick={() => setSelectedIds({})}
+                        >
+                          Clear
+                        </button>
+                        <button
+                          className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                          type="button"
+                          onClick={() => { setTab('variables'); setDoeOpen(false); setDoeError(null); setDoeResult(null); }}
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 border rounded bg-white space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium">Variables</div>
+                        <div className="text-xs text-gray-500">Zaznacz zmienne, które mają wejść do DOE.</div>
+                      </div>
+                    </div>
+
+                    <div className="max-h-72 overflow-auto border rounded">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="p-2 w-10"></th>
+                            <th className="p-2 text-left">Name</th>
+                            <th className="p-2 text-left">Domain</th>
+                            <th className="p-2 text-left">Source</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {variables.map((v) => (
+                            <tr key={v.id} className="border-t hover:bg-gray-50">
+                              <td className="p-2">
+                                <input
+                                  type="checkbox"
+                                  checked={!!selectedIds[v.id]}
+                                  onChange={(e) => setSelectedIds((prev) => ({ ...prev, [v.id]: e.target.checked }))}
+                                />
+                              </td>
+                              <td className="p-2">
+                                <div className="text-gray-900">{v.name}</div>
+                                <div className="text-[10px] text-gray-500">id={v.id}</div>
+                              </td>
+                              <td className="p-2 text-gray-600">
+                                [{v.min_value ?? '—'}..{v.max_value ?? '—'}] {v.unit || ''}
+                              </td>
+                              <td className="p-2">{sourceBadge(v.source)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
 
                 {doeError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{doeError}</pre>}
@@ -333,123 +479,314 @@ function App() {
               </div>
             )}
 
-            {optimizeOpen && (
+            {tab === 'optimize' && optimizeOpen && (
               <div className="p-4 bg-white rounded border border-gray-200 space-y-3">
-                <div className="text-sm font-medium">Optimize (stub)</div>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <div className="text-sm font-semibold">Optimize</div>
+                    <div className="text-xs text-gray-500">Wybierz cel i parametry wyszukiwania; wynik to najlepszy punkt w domenie.</div>
+                  </div>
+                </div>
 
-                <div className="flex gap-3 items-center flex-wrap">
-                  <label className="text-sm">Objective</label>
-                  <select
-                    className="border rounded px-2 py-1"
-                    value={objectiveKind}
-                    onChange={(e) => setObjectiveKind(e.target.value as any)}
-                  >
-                    <option value="maximize_variable">maximize</option>
-                    <option value="minimize_variable">minimize</option>
-                    <option value="linear">linear</option>
-                    <option value="target">target</option>
-                  </select>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {/* Objective builder */}
+                  <div className="p-3 border rounded bg-gray-50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Objective</div>
+                      <div className="text-[11px] text-gray-500">
+                        Podgląd:{' '}
+                        <span className="font-mono text-gray-700">
+                          {(() => {
+                            const name = idToName[objectiveVarId] || `var ${objectiveVarId}`;
+                            if (objectiveKind === 'maximize_variable') return `maximize(${name})`;
+                            if (objectiveKind === 'minimize_variable') return `minimize(${name})`;
+                            if (objectiveKind === 'target') return `target(${name} → ${targetValueRaw || '…'}, ${targetLoss})`;
+                            // linear
+                            const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                            const terms = ids
+                              .map((vid) => ({ vid, w: parseFloat(linearWeights[vid] ?? '0') }))
+                              .filter((t) => Number.isFinite(t.w) && t.w !== 0);
+                            const rendered = terms
+                              .slice(0, 3)
+                              .map((t) => `${t.w > 0 ? '+' : ''}${t.w}·${idToName[t.vid] || `var ${t.vid}`}`)
+                              .join(' ');
+                            const more = terms.length > 3 ? ` (+${terms.length - 3})` : '';
+                            const norm = linearNormalizeDomain ? ' normalize=domain' : '';
+                            return `linear(${rendered || '…'}${more}${norm})`;
+                          })()}
+                        </span>
+                      </div>
+                    </div>
 
-                  {objectiveKind !== 'linear' ? (
-                    <select
-                      className="border rounded px-2 py-1"
-                      value={objectiveVarId}
-                      onChange={(e) => setObjectiveVarId(parseInt(e.target.value, 10))}
-                    >
-                      {variables.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.name} (id={v.id})
-                        </option>
+                    <div className="inline-flex rounded border bg-white overflow-hidden">
+                      {([
+                        { k: 'maximize_variable', label: 'Maximize' },
+                        { k: 'minimize_variable', label: 'Minimize' },
+                        { k: 'target', label: 'Target' },
+                        { k: 'linear', label: 'Weighted sum' },
+                      ] as any[]).map((t) => (
+                        <button
+                          key={t.k}
+                          type="button"
+                          onClick={() => setObjectiveKind(t.k)}
+                          className={
+                            'px-3 py-1 text-xs border-r last:border-r-0 ' +
+                            (objectiveKind === t.k ? 'bg-purple-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')
+                          }
+                        >
+                          {t.label}
+                        </button>
                       ))}
-                    </select>
-                  ) : (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {variables
-                        .filter((v) => !!selectedIds[v.id])
-                        .slice(0, 5)
-                        .map((v) => (
-                          <label key={v.id} className="flex items-center gap-1 text-xs">
-                            <span className="text-gray-600">w({v.id})</span>
+                    </div>
+
+                    {(objectiveKind === 'maximize_variable' || objectiveKind === 'minimize_variable' || objectiveKind === 'target') && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <label className="text-xs text-gray-600">Variable</label>
+                        <select
+                          className="border rounded px-2 py-1 text-sm bg-white"
+                          value={objectiveVarId}
+                          onChange={(e) => setObjectiveVarId(parseInt(e.target.value, 10))}
+                        >
+                          {variables.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {objectiveKind === 'target' && (() => {
+                      const dom = idToVar?.[objectiveVarId];
+                      const lo = Number(dom?.min_value);
+                      const hi = Number(dom?.max_value);
+                      const unit = dom?.unit ? String(dom.unit) : '';
+                      const t = parseFloat(targetValueRaw);
+                      const sliderOk = Number.isFinite(lo) && Number.isFinite(hi) && hi > lo;
+                      const sliderVal = Number.isFinite(t) ? Math.min(hi, Math.max(lo, t)) : lo;
+                      return (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+                            <div className="sm:col-span-2">
+                              <label className="text-xs text-gray-600">Target value {unit ? `(${unit})` : ''}</label>
+                              <input
+                                className="border rounded px-2 py-1 w-full bg-white"
+                                type="text"
+                                inputMode="decimal"
+                                placeholder={sliderOk ? `${lo}..${hi}` : 'e.g. 10'}
+                                value={targetValueRaw}
+                                onChange={(e) => setTargetValueRaw(e.target.value)}
+                              />
+                              {sliderOk && (
+                                <input
+                                  className="w-full mt-2"
+                                  type="range"
+                                  min={lo}
+                                  max={hi}
+                                  step={(hi - lo) / 200}
+                                  value={sliderVal}
+                                  onChange={(e) => setTargetValueRaw(e.target.value)}
+                                />
+                              )}
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600">Loss</label>
+                              <select
+                                className="border rounded px-2 py-1 w-full bg-white"
+                                value={targetLoss}
+                                onChange={(e) => setTargetLoss(e.target.value as any)}
+                              >
+                                <option value="abs">abs (robust)</option>
+                                <option value="squared">squared (strong)</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-gray-500">
+                            Im bliżej targetu, tym lepiej. Wybierz <span className="font-medium">abs</span> dla odporności na outliery, <span className="font-medium">squared</span> dla mocniejszej kary.
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {objectiveKind === 'linear' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="text-xs text-gray-600">Weights (selected variables)</div>
+                          <label className="flex items-center gap-2 text-xs text-gray-700">
                             <input
-                              className="border rounded px-2 py-1 w-20"
-                              type="text"
-                              inputMode="decimal"
-                              value={linearWeights[v.id] ?? '0'}
-                              onChange={(e) => setLinearWeights((prev) => ({ ...prev, [v.id]: e.target.value }))}
-                              placeholder="0"
-                              title={v.name}
+                              type="checkbox"
+                              checked={linearNormalizeDomain}
+                              onChange={(e) => setLinearNormalizeDomain(e.target.checked)}
                             />
-                            <span className="text-gray-500 truncate max-w-[140px]">{v.name}</span>
+                            normalize by domain ([0..1])
                           </label>
-                        ))}
-                      <span className="text-xs text-gray-500">(first 5 selected vars)</span>
+                        </div>
+
+                        <div className="flex items-start gap-3 flex-wrap">
+                          <div className="max-h-56 overflow-auto border rounded bg-white">
+                            <table className="min-w-[460px] text-xs">
+                              <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                  <th className="text-left p-2">Variable</th>
+                                  <th className="text-left p-2 w-40">Weight</th>
+                                  <th className="text-left p-2 w-28">Quick</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {variables.filter((v) => !!selectedIds[v.id]).map((v) => (
+                                  <tr key={v.id} className="border-t">
+                                    <td className="p-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-gray-800">{v.name}</span>
+                                        <span className="text-[10px] text-gray-400">id={v.id}</span>
+                                        {sourceBadge((v as any)?.source)}
+                                      </div>
+                                    </td>
+                                    <td className="p-2">
+                                      <input
+                                        className="border rounded px-2 py-1 w-full"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={linearWeights[v.id] ?? '0'}
+                                        onChange={(e) => setLinearWeights((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                                      />
+                                    </td>
+                                    <td className="p-2">
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          className="px-2 py-1 border rounded text-[11px]"
+                                          onClick={() => setLinearWeights((prev) => ({ ...prev, [v.id]: '1' }))}
+                                        >
+                                          +1
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="px-2 py-1 border rounded text-[11px]"
+                                          onClick={() => setLinearWeights((prev) => ({ ...prev, [v.id]: '-1' }))}
+                                        >
+                                          -1
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="px-2 py-1 border rounded text-[11px]"
+                                          onClick={() => setLinearWeights((prev) => ({ ...prev, [v.id]: '0' }))}
+                                        >
+                                          0
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <button
+                              className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                              type="button"
+                              onClick={() => {
+                                const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                                const next: Record<number, string> = {};
+                                for (const id of ids) next[id] = '0';
+                                setLinearWeights((prev) => ({ ...prev, ...next }));
+                              }}
+                            >
+                              Reset all
+                            </button>
+                            <button
+                              className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                              type="button"
+                              onClick={() => {
+                                const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                                const next: Record<number, string> = {};
+                                for (const id of ids) next[id] = '1';
+                                setLinearWeights((prev) => ({ ...prev, ...next }));
+                              }}
+                            >
+                              All +1
+                            </button>
+                            <button
+                              className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                              type="button"
+                              onClick={() => {
+                                const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                                const next: Record<number, string> = {};
+                                for (const id of ids) next[id] = '-1';
+                                setLinearWeights((prev) => ({ ...prev, ...next }));
+                              }}
+                            >
+                              All -1
+                            </button>
+                            <button
+                              className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                              type="button"
+                              onClick={() => {
+                                const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                                setLinearWeights((prev) => {
+                                  const out: Record<number, string> = { ...(prev || {}) };
+                                  for (const id of ids) {
+                                    const w = parseFloat(out[id] ?? '0');
+                                    out[id] = Number.isFinite(w) ? String(-w) : '0';
+                                  }
+                                  return out;
+                                });
+                              }}
+                            >
+                              Invert
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-gray-500">
+                          Tip: ustaw dodatnie wagi dla rzeczy które chcesz zwiększać, ujemne dla rzeczy które chcesz zmniejszać.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Search params */}
+                  <div className="p-3 border rounded bg-white space-y-3">
+                    <div className="text-sm font-medium">Search</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                      <div>
+                        <label className="text-xs text-gray-600">Iterations</label>
+                        <input
+                          className="border rounded px-2 py-1 w-full"
+                          type="number"
+                          min={1}
+                          max={5000}
+                          value={nIter}
+                          onChange={(e) => setNIter(parseInt(e.target.value || '1', 10))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600">Method</label>
+                        <select
+                          className="border rounded px-2 py-1 w-full"
+                          value={optMethod}
+                          onChange={(e) => setOptMethod(e.target.value as any)}
+                        >
+                          <option value="random">random</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600">Seed</label>
+                        <input
+                          className="border rounded px-2 py-1 w-full"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="(auto)"
+                          value={optSeedRaw}
+                          onChange={(e) => setOptSeedRaw(e.target.value)}
+                        />
+                      </div>
                     </div>
-                  )}
-
-                  {objectiveKind === 'linear' && (
-                    <label className="flex items-center gap-2 text-xs text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={linearNormalizeDomain}
-                        onChange={(e) => setLinearNormalizeDomain(e.target.checked)}
-                      />
-                      normalize by domain ([0..1])
-                    </label>
-                  )}
-
-                  {objectiveKind === 'target' && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <label className="text-xs text-gray-600">target</label>
-                      <input
-                        className="border rounded px-2 py-1 w-28"
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="e.g. 10"
-                        value={targetValueRaw}
-                        onChange={(e) => setTargetValueRaw(e.target.value)}
-                      />
-                      <label className="text-xs text-gray-600 ml-2">loss</label>
-                      <select
-                        className="border rounded px-2 py-1"
-                        value={targetLoss}
-                        onChange={(e) => setTargetLoss(e.target.value as any)}
-                      >
-                        <option value="abs">abs</option>
-                        <option value="squared">squared</option>
-                      </select>
+                    <div className="text-[11px] text-gray-500">
+                      Na razie używamy random search w domenie. Deterministyczny scoring, bez LLM.
                     </div>
-                  )}
-
-                  <label className="text-sm ml-4">Iterations</label>
-                  <input
-                    className="border rounded px-2 py-1 w-28"
-                    type="number"
-                    min={1}
-                    max={5000}
-                    value={nIter}
-                    onChange={(e) => setNIter(parseInt(e.target.value || '1', 10))}
-                  />
-
-                  <label className="text-sm ml-4">Method</label>
-                  <select
-                    className="border rounded px-2 py-1"
-                    value={optMethod}
-                    onChange={(e) => setOptMethod(e.target.value as any)}
-                  >
-                    <option value="random">random</option>
-                  </select>
-
-                  <label className="text-sm ml-4">Seed</label>
-                  <input
-                    className="border rounded px-2 py-1 w-28"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="(auto)"
-                    value={optSeedRaw}
-                    onChange={(e) => setOptSeedRaw(e.target.value)}
-                  />
-
-                  <span className="text-xs text-gray-500">(random within domain; placeholder objective)</span>
+                  </div>
                 </div>
 
                 <div>
@@ -641,7 +978,7 @@ function App() {
                     Run
                   </button>
 
-                  <button className="px-4 py-2 border rounded" onClick={() => { setOptimizeOpen(false); setOptimizeError(null); setOptimizeResult(null); }}>
+                  <button className="px-4 py-2 border rounded" onClick={() => { setTab('variables'); setOptimizeOpen(false); setOptimizeError(null); setOptimizeResult(null); }}>
                     Close
                   </button>
                 </div>
@@ -695,9 +1032,43 @@ function App() {
                       <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span>best_score: {Number(optimizeResult?.meta?.best_score ?? NaN).toFixed(4)}</span>
                         <span>
-                          objective: {optimizeResult?.meta?.objective?.kind || '—'}
-                          {' '}
-                          ({idToName[Number(optimizeResult?.meta?.objective?.variable_id)] || `var ${optimizeResult?.meta?.objective?.variable_id ?? '—'}`})
+                          objective:{' '}
+                          {(() => {
+                            const obj: any = optimizeResult?.meta?.objective;
+                            const kind = obj?.kind;
+                            if (!kind) return '—';
+
+                            if (kind === 'linear') {
+                              const terms: any[] = Array.isArray(obj?.terms) ? obj.terms : [];
+                              const normalize = obj?.normalize;
+                              const rendered = terms
+                                .slice(0, 3)
+                                .map((t) => {
+                                  const vid = Number(t?.variable_id);
+                                  const w = Number(t?.weight);
+                                  const name = idToName[vid] || `var ${vid}`;
+                                  const wStr = Number.isFinite(w) ? w.toFixed(3).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1') : String(t?.weight);
+                                  return `${wStr}·${name}`;
+                                })
+                                .join(' + ');
+                              const more = terms.length > 3 ? ` (+${terms.length - 3})` : '';
+                              const norm = normalize ? `, normalize=${normalize}` : '';
+                              return `linear: ${rendered}${more}${norm}`;
+                            }
+
+                            if (kind === 'target') {
+                              const vid = Number(obj?.variable_id);
+                              const name = idToName[vid] || `var ${obj?.variable_id ?? '—'}`;
+                              const tgt = obj?.target;
+                              const loss = obj?.loss || 'abs';
+                              return `target: ${name} → ${tgt} (loss=${loss})`;
+                            }
+
+                            // maximize/minimize
+                            const vid = Number(obj?.variable_id);
+                            const name = idToName[vid] || `var ${obj?.variable_id ?? '—'}`;
+                            return `${kind} (${name})`;
+                          })()}
                         </span>
                         <span>
                           seeded: {optimizeResult?.meta?.initial_points ?? 0}
@@ -762,9 +1133,14 @@ function App() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <div className="text-sm font-medium mb-2">Variables</div>
+            {tab === 'variables' && (
+              <div className="p-4 bg-white rounded border border-gray-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-sm font-semibold">Variables</div>
+                    <div className="text-xs text-gray-500">Podgląd zmiennych, domen i źródeł.</div>
+                  </div>
+                </div>
                 <ul className="space-y-2">
                   {variables.map((v) => (
                     <li key={v.id} className="p-3 bg-white rounded border border-gray-200">
@@ -773,78 +1149,84 @@ function App() {
                         {sourceBadge(v.source)}
                       </div>
                       <div className="text-xs text-gray-500">{String(v.variable_type)}</div>
+                      <div className="text-[11px] text-gray-500 mt-1">
+                        Domain: [{v.min_value ?? '—'}..{v.max_value ?? '—'}] {v.unit || ''}
+                      </div>
                     </li>
                   ))}
                 </ul>
               </div>
+            )}
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-medium">Run history</div>
-                  <div className="flex items-center gap-2">
-                    <button className="px-3 py-1 border rounded text-xs" onClick={refreshRuns}>Refresh</button>
-                    <button
-                      className="px-3 py-1 border rounded text-xs"
-                      onClick={() => setRunDetail(null)}
-                      title="Close details"
-                    >
-                      Clear detail
-                    </button>
-                  </div>
-                </div>
-                {runsNotice && <pre className="text-xs text-emerald-700 whitespace-pre-wrap">{runsNotice}</pre>}
-                {runsError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{runsError}</pre>}
-                {runDetail && (
-                  <div className="mb-3 p-3 bg-gray-50 border rounded">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium">Run detail #{runDetail.id}</div>
-                      <button className="px-2 py-1 border rounded text-xs" onClick={() => setRunDetail(null)}>
-                        Close
+            {tab === 'runs' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-medium">Run history</div>
+                    <div className="flex items-center gap-2">
+                      <button className="px-3 py-1 border rounded text-xs" onClick={refreshRuns}>Refresh</button>
+                      <button
+                        className="px-3 py-1 border rounded text-xs"
+                        onClick={() => setRunDetail(null)}
+                        title="Close details"
+                      >
+                        Clear detail
                       </button>
                     </div>
-                    <div className="text-[10px] text-gray-600 mt-1">{runDetail.run_type} • {runDetail.created_at}</div>
-                    <details className="mt-2">
-                      <summary className="text-xs cursor-pointer">request_json</summary>
-                      <div className="flex justify-end mt-2">
-                        <button
-                          className="px-2 py-1 border rounded text-[10px]"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(JSON.stringify(runDetail.request_json, null, 2));
-                            setRunsNotice('Copied request_json to clipboard.');
-                          }}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.request_json, null, 2)}</pre>
-                    </details>
-                    <details className="mt-2">
-                      <summary className="text-xs cursor-pointer">response_json</summary>
-                      <div className="flex justify-end mt-2">
-                        <button
-                          className="px-2 py-1 border rounded text-[10px]"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(JSON.stringify(runDetail.response_json, null, 2));
-                            setRunsNotice('Copied response_json to clipboard.');
-                          }}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.response_json, null, 2)}</pre>
-                    </details>
                   </div>
-                )}
+                  {runsNotice && <pre className="text-xs text-emerald-700 whitespace-pre-wrap">{runsNotice}</pre>}
+                  {runsError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{runsError}</pre>}
+                  {runDetail && (
+                    <div className="mb-3 p-3 bg-gray-50 border rounded">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">Run detail #{runDetail.id}</div>
+                        <button className="px-2 py-1 border rounded text-xs" onClick={() => setRunDetail(null)}>
+                          Close
+                        </button>
+                      </div>
+                      <div className="text-[10px] text-gray-600 mt-1">{runDetail.run_type} • {runDetail.created_at}</div>
+                      <details className="mt-2">
+                        <summary className="text-xs cursor-pointer">request_json</summary>
+                        <div className="flex justify-end mt-2">
+                          <button
+                            className="px-2 py-1 border rounded text-[10px]"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(JSON.stringify(runDetail.request_json, null, 2));
+                              setRunsNotice('Copied request_json to clipboard.');
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.request_json, null, 2)}</pre>
+                      </details>
+                      <details className="mt-2">
+                        <summary className="text-xs cursor-pointer">response_json</summary>
+                        <div className="flex justify-end mt-2">
+                          <button
+                            className="px-2 py-1 border rounded text-[10px]"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(JSON.stringify(runDetail.response_json, null, 2));
+                              setRunsNotice('Copied response_json to clipboard.');
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.response_json, null, 2)}</pre>
+                      </details>
+                    </div>
+                  )}
 
-                <div className="space-y-2">
-                  {runs.length === 0 ? (
-                    <div className="text-xs text-gray-500">No runs saved yet.</div>
-                  ) : (
-                    runs.slice(0, 25).map((r: any) => (
+                  <div className="space-y-2">
+                    {runs.length === 0 ? (
+                      <div className="text-xs text-gray-500">No runs saved yet.</div>
+                    ) : (
+                      runs.slice(0, 25).map((r: any) => (
                       <div key={r.id} className="p-3 bg-white rounded border border-gray-200 hover:bg-gray-50">
                         <div className="flex items-center justify-between gap-2">
                           <button
@@ -875,6 +1257,17 @@ function App() {
                                   if (ok === 'linear') {
                                     const nz = full.response_json?.meta?.objective?.normalize;
                                     setLinearNormalizeDomain(nz === 'domain');
+
+                                    const terms = full.response_json?.meta?.objective?.terms;
+                                    if (Array.isArray(terms)) {
+                                      const next: Record<number, string> = {};
+                                      for (const t of terms) {
+                                        const vid = Number(t?.variable_id);
+                                        const w = Number(t?.weight);
+                                        if (Number.isFinite(vid) && vid > 0 && Number.isFinite(w)) next[vid] = String(w);
+                                      }
+                                      setLinearWeights((prev) => ({ ...prev, ...next }));
+                                    }
                                   }
                                   if (ok === 'target') {
                                     const tv = full.response_json?.meta?.objective?.target;
@@ -936,6 +1329,17 @@ function App() {
                                     if (ok === 'linear') {
                                       const nz = data?.meta?.objective?.normalize;
                                       setLinearNormalizeDomain(nz === 'domain');
+
+                                      const terms = data?.meta?.objective?.terms;
+                                      if (Array.isArray(terms)) {
+                                        const next: Record<number, string> = {};
+                                        for (const t of terms) {
+                                          const vid = Number(t?.variable_id);
+                                          const w = Number(t?.weight);
+                                          if (Number.isFinite(vid) && vid > 0 && Number.isFinite(w)) next[vid] = String(w);
+                                        }
+                                        setLinearWeights((prev) => ({ ...prev, ...next }));
+                                      }
                                     }
                                     if (ok === 'target') {
                                       const tv = data?.meta?.objective?.target;
@@ -974,6 +1378,7 @@ function App() {
                 </div>
               </div>
             </div>
+          )}
           </div>
         )}
       </main>

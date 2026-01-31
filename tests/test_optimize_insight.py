@@ -53,6 +53,23 @@ def test_optimize_insight_ok(client: TestClient):
     assert len(data["bullets"]) >= 2
 
 
+def test_optimize_insight_target_explains_score(client: TestClient):
+    resp = client.post(
+        "/experiments/optimize/insight",
+        json={
+            "variable_ids": [1],
+            "best_point": {"1": 0.1},
+            "meta": {
+                "best_score": -0.2,
+                "objective": {"kind": "target", "variable_id": 1, "target": 0.3, "loss": "abs"},
+            },
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert any("score = -|x-target|" in b for b in data["bullets"])
+
+
 def test_optimize_insight_rejects_duplicate_ids(client: TestClient):
     resp = client.post(
         "/experiments/optimize/insight",

@@ -51,6 +51,10 @@ def summarize_optimize_result(variable_ids: List[int], best_point: Dict[str, flo
             vname = variable_names.get(vid) if isinstance(variable_names, dict) else None
             name = vname or ("var " + vid)
             bullets.append(f"Cel: target ({name}) → {tgt} (loss={loss}).")
+            if loss == "squared":
+                bullets.append("Interpretacja: im bliżej targetu, tym lepiej (score = -(x-target)^2).")
+            else:
+                bullets.append("Interpretacja: im bliżej targetu, tym lepiej (score = -|x-target|).")
         elif objective.get("variable_id"):
             vid = str(objective.get("variable_id"))
             vname = None
