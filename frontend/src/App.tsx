@@ -10,6 +10,7 @@ function App() {
   // Runs history (persisted on backend)
   const [runs, setRuns] = useState<any[]>([]);
   const [runsError, setRunsError] = useState<string | null>(null);
+  const [runsNotice, setRunsNotice] = useState<string | null>(null);
   const [runDetail, setRunDetail] = useState<any | null>(null);
 
   const fetchJson = async (url: string, options?: RequestInit) => {
@@ -30,6 +31,7 @@ function App() {
   const refreshRuns = async () => {
     try {
       setRunsError(null);
+      setRunsNotice(null);
       const data = await fetchJson('/runs');
       setRuns(data.items || []);
     } catch (e: any) {
@@ -670,6 +672,7 @@ function App() {
                     </button>
                   </div>
                 </div>
+                {runsNotice && <pre className="text-xs text-emerald-700 whitespace-pre-wrap">{runsNotice}</pre>}
                 {runsError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{runsError}</pre>}
                 {runDetail && (
                   <div className="mb-3 p-3 bg-gray-50 border rounded">
@@ -689,7 +692,7 @@ function App() {
                             e.preventDefault();
                             e.stopPropagation();
                             navigator.clipboard.writeText(JSON.stringify(runDetail.request_json, null, 2));
-                            setRunsError('Copied request_json to clipboard.');
+                            setRunsNotice('Copied request_json to clipboard.');
                           }}
                         >
                           Copy
@@ -706,7 +709,7 @@ function App() {
                             e.preventDefault();
                             e.stopPropagation();
                             navigator.clipboard.writeText(JSON.stringify(runDetail.response_json, null, 2));
-                            setRunsError('Copied response_json to clipboard.');
+                            setRunsNotice('Copied response_json to clipboard.');
                           }}
                         >
                           Copy
