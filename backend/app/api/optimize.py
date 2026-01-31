@@ -19,6 +19,7 @@ class OptimizeRequest(BaseModel):
     method: OptimizeMethod = Field(OptimizeMethod.random)
     seed: Optional[int] = None
     initial_points: List[Dict[str, float]] = Field(default_factory=list)
+    max_initial_points: int = Field(200, ge=0, le=5000)
 
 
 class OptimizeResponse(BaseModel):
@@ -77,7 +78,12 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
     best_point: Dict[str, Any] = {}
 
     # Optional initial points (e.g., from DOE)
-    for p_in in req.initial_points:
+    if req.max_initial_points == 0:
+        initial_iter = []
+    else:
+        initial_iter = req.initial_points[: req.max_initial_points]
+
+    for p_in in initial_iter:
         p: Dict[str, Any] = {}
         for v in ordered:
             key = str(v.id)
@@ -115,7 +121,8 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
         meta={
             "objective": "stub:maximize_normalized_sum",
             "best_score": best_score,
-            "initial_points": len(req.initial_points),
+            "initial_points": len(initial_iter),
+            "max_initial_points": req.max_initial_points,
             "variable_order": [v.id for v in ordered],
             "domain": {
                 str(v.id): {"min": v.min_value, "max": v.max_value, "unit": v.unit}

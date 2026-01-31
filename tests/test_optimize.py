@@ -86,6 +86,7 @@ def test_optimize_accepts_initial_points(client: TestClient):
             "method": "random",
             "seed": 1,
             "initial_points": [{str(v1): 0.5, str(v2): 0.0}],
+            "max_initial_points": 200,
         },
     )
     assert resp.status_code == 200
@@ -109,3 +110,24 @@ def test_optimize_rejects_initial_points_out_of_domain(client: TestClient):
         },
     )
     assert resp.status_code == 422
+
+
+def test_optimize_limits_initial_points(client: TestClient):
+    v1 = _create_var(client, "o6", 0.0, 1.0)
+
+    resp = client.post(
+        "/experiments/optimize",
+        json={
+            "variable_ids": [v1],
+            "n_iter": 1,
+            "method": "random",
+            "seed": 1,
+            "initial_points": [{str(v1): 0.1}, {str(v1): 0.2}, {str(v1): 0.3}],
+            "max_initial_points": 2,
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["meta"]["initial_points"] == 2
+    assert data["meta"]["max_initial_points"] == 2
+    assert len(data["history"]) == 3
