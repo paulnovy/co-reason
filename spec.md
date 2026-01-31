@@ -1,18 +1,36 @@
-# Product Optimizer — Sprint 0 (Front Stabilization)
+# Product Optimizer — Sprint 1 (Thin Vertical Slice)
 
 ## Cel
-Ustabilizować frontend tak, aby był używalny w LAN i pozwalał:
-- wyświetlić listę zmiennych z API,
-- wyświetlić prosty graf (ReactFlow) z węzłami bez relacji,
-- zachować spójne mapowanie enumów (API lowercase → UI uppercase).
+Zbudować pierwszy cienki „end‑to‑end” slice, który dowodzi kluczowej wartości: użytkownik tworzy model, uruchamia bezpieczny DOE i dostaje zrozumiałe insighty.
 
-## Wymagania
-- Front działa pod: http://192.168.33.50:5173
-- API działa pod: http://192.168.33.50:8000
-- Brak błędów runtime w przeglądarce.
-- Każda zmiana w pętli ma być weryfikowana (render check).
+## Zakres (must‑have)
+1) **Model creation**
+- CRUD zmiennych + relacji (już jest).
+- Każda zmienna ma: typ (category), constraints (min/max/unit), provenance (source+confidence).
 
-## Nie teraz
-- Pełne relacje/edges
-- DOE/Optimization
-- AI Assistant panel
+2) **DOE (safe)**
+- Endpoint backendu: `POST /experiments/doe`.
+- Wejście: lista `variable_id` + liczba punktów + metoda (`sobol` lub `lhs`).
+- Silnik generuje punkty **tylko w domenie** (twarde min/max). Jeśli domena nieznana → reject/"unsafe".
+- Wyjście: macierz punktów + metadane (seed, metoda).
+
+3) **Insight (narrative, kontrolowany szablon)**
+- Endpoint backendu: `POST /experiments/doe/insight`.
+- Wejście: DOE points + opcjonalne wyniki (jeśli mamy funkcję celu później).
+- Wyjście: krótka narracja wg template (bez "silent writes").
+
+4) **Frontend (MVP)**
+- Widok listy zmiennych (stable) + przycisk „Run DOE”.
+- Modal: wybór zmiennych + metoda + liczba punktów.
+- Wynik: tabela + proste wykresy (na start można tabela + placeholder wykresów).
+- UI pokazuje provenance (kolor) w całym flow.
+
+## Safety / Trust
+- Backend enforce: domain clipping/reject.
+- Provenance zawsze widoczna.
+- AI nie może generować wartości poza domeną; jeśli brak domeny → "unsafe".
+
+## Out of scope
+- Optymalizacja (Sprint 2)
+- Pełny AI Assistant panel
+- Zaawansowane wykresy

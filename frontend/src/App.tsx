@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Variable, VariableList } from './types';
 import { VariableGraph } from './components/VariableGraph';
 
@@ -22,6 +22,15 @@ function App() {
 
   const useGraph = import.meta.env.VITE_USE_GRAPH === 'true';
 
+  // DOE UI (baseline view)
+  const [doeOpen, setDoeOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Record<number, boolean>>({});
+  const [method, setMethod] = useState<'sobol' | 'lhs'>('sobol');
+  const [nPoints, setNPoints] = useState(20);
+  const [doeResult, setDoeResult] = useState<any>(null);
+  const [doeError, setDoeError] = useState<string | null>(null);
+  const idToName = useMemo(() => Object.fromEntries(variables.map(v => [v.id, v.name])), [variables]);
+
   return (
     <div className="w-screen h-screen bg-gray-50 text-gray-900">
       <header className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -41,14 +50,168 @@ function App() {
         ) : useGraph ? (
           <VariableGraph variables={variables} isLoading={loading} />
         ) : (
-          <ul className="space-y-2">
-            {variables.map((v) => (
-              <li key={v.id} className="p-3 bg-white rounded border border-gray-200">
-                <div className="font-medium">{v.name}</div>
-                <div className="text-xs text-gray-500">{String(v.variable_type)} • {String(v.source)}</div>
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <button
+                className="px-4 py-2 bg-gray-900 text-white rounded"
+                onClick={() => setDoeOpen((v) => !v)}
+              >
+                Run DOE
+              </button>
+              <div className="text-xs text-gray-500">Endpoint: POST /experiments/doe</div>
+            </div>
+
+            {doeOpen && (
+              <div className="p-4 bg-white rounded border border-gray-200 space-y-3">
+                <div className="text-sm font-medium">DOE settings</div>
+
+                <div className="flex gap-3 items-center">
+                  <label className="text-sm">Method</label>
+                  <select
+                    className="border rounded px-2 py-1"
+                    value={method}
+                    onChange={(e) => setMethod(e.target.value as any)}
+                  >
+                    <option value="sobol">sobol</option>
+                    <option value="lhs">lhs</option>
+                  </select>
+
+                  <label className="text-sm ml-4">Points</label>
+                  <input
+                    className="border rounded px-2 py-1 w-24"
+                    type="number"
+                    min={1}
+                    max={5000}
+                    value={nPoints}
+                    onChange={(e) => setNPoints(parseInt(e.target.value || '1', 10))}
+                  />
+                </div>
+
+                <div>
+                  <div className="text-sm mb-2">Variables</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {variables.map((v) => (
+                      <label key={v.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={!!selectedIds[v.id]}
+                          onChange={(e) => setSelectedIds((prev) => ({ ...prev, [v.id]: e.target.checked }))}
+                        />
+                        <span>{v.name}</span>
+                        <span className="text-xs text-gray-400">[{v.min_value ?? '—'}..{v.max_value ?? '—'}]</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded"
+                    onClick={async () => {
+                      setDoeError(null);
+                      setDoeResult(null);
+                      const variable_ids = Object.entries(selectedIds)
+                        .filter(([, v]) => v)
+                        .map(([k]) => parseInt(k, 10));
+                      try {
+                        const resp = await fetch('/experiments/doe', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ variable_ids, n_points: nPoints, method }),
+                        });
+                        const data = await resp.json();
+                        if (!resp.ok) throw new Error(JSON.stringify(data));
+                        setDoeResult(data);
+                      } catch (err: any) {
+                        setDoeError(err?.message || String(err));
+                      }
+                    }}
+                  >
+                    Generate
+                  </button>
+
+                  <button className="px-4 py-2 border rounded" onClick={() => { setDoeOpen(false); setDoeError(null); setDoeResult(null); }}>
+                    Close
+                  </button>
+                </div>
+
+                {doeError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{doeError}</pre>}
+
+                {doeResult && (
+                  <div className="pt-2 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">DOE result</div>
+                      <button
+                        className="px-3 py-1 bg-emerald-600 text-white rounded text-xs"
+                        onClick={async () => {
+                          try {
+                            const resp = await fetch('/experiments/doe/insight', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                variable_ids: doeResult.variable_ids,
+                                points: doeResult.points,
+                              }),
+                            });
+                            const data = await resp.json();
+                            if (!resp.ok) throw new Error(JSON.stringify(data));
+                            setDoeResult((prev: any) => ({ ...prev, insight: data }));
+                          } catch (err: any) {
+                            setDoeError(err?.message || String(err));
+                          }
+                        }}
+                      >
+                        Generate insight
+                      </button>
+                    </div>
+
+                    <div className="overflow-auto border rounded">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left p-2">#</th>
+                            {(doeResult.variable_ids || []).map((vid: number) => (
+                              <th key={vid} className="text-left p-2">{idToName[vid] || String(vid)}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(doeResult.points || []).map((p: any, idx: number) => (
+                            <tr key={idx} className="border-t">
+                              <td className="p-2">{idx + 1}</td>
+                              {(doeResult.variable_ids || []).map((vid: number) => (
+                                <td key={vid} className="p-2">{Number(p[String(vid)]).toFixed(4)}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {doeResult.insight && (
+                      <div className="p-3 bg-gray-50 border rounded">
+                        <div className="text-sm font-medium">{doeResult.insight.summary}</div>
+                        <ul className="list-disc pl-5 mt-2 text-xs text-gray-700 space-y-1">
+                          {(doeResult.insight.bullets || []).map((b: string, i: number) => (
+                            <li key={i}>{b}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <ul className="space-y-2">
+              {variables.map((v) => (
+                <li key={v.id} className="p-3 bg-white rounded border border-gray-200">
+                  <div className="font-medium">{v.name}</div>
+                  <div className="text-xs text-gray-500">{String(v.variable_type)} • {String(v.source)}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </main>
     </div>

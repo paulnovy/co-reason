@@ -2,9 +2,9 @@
 
 Human‑AI Co‑Reasoning Workspace for progressive modeling, trustworthy DOE, and optimization of complex physical/hybrid systems.
 
-## Current status (Sprint 0)
-- FastAPI backend with Variables + Relationships models (provenance + domain constraints).
-- React frontend (Vite) running in LAN (baseline: variables list; graph work-in-progress behind feature flag).
+## Current status
+- **Sprint 0**: FastAPI backend with Variables + Relationships models (provenance + domain constraints), React frontend skeleton, operational runbook.
+- **Sprint 1 (thin slice)**: Safe DOE generation (`/experiments/doe`) + controlled insight template (`/experiments/doe/insight`) + minimal UI (Run DOE + table + Generate insight).
 - PostgreSQL supported (docker compose), tests use SQLite.
 
 ## Quick start (dev)
