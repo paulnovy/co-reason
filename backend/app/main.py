@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,10 +10,22 @@ from .api.optimize import router as optimize_router
 from .api.runs import router as runs_router
 from .database import init_db
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Dev-friendly: ensure tables exist. In production we'd use Alembic.
+    try:
+        init_db()
+    except Exception:
+        # Avoid crashing the app on startup if DB is temporarily unavailable.
+        pass
+    yield
+
+
 app = FastAPI(
     title="Product Optimizer API",
     description="API for managing variables and their relationships in product optimization",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS middleware
@@ -37,16 +51,6 @@ def read_root():
         "version": "1.0.0",
         "docs": "/docs"
     }
-
-
-@app.on_event("startup")
-def _startup_create_tables():
-    # Dev-friendly: ensure tables exist. In production we'd use Alembic.
-    try:
-        init_db()
-    except Exception:
-        # Avoid crashing the app on startup if DB is temporarily unavailable.
-        pass
 
 
 @app.get("/health")
