@@ -356,162 +356,312 @@ function App() {
 
             {optimizeOpen && (
               <div className="p-4 bg-white rounded border border-gray-200 space-y-3">
-                <div className="text-sm font-medium">Optimize (stub)</div>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <div className="text-sm font-semibold">Optimize</div>
+                    <div className="text-xs text-gray-500">Wybierz cel i parametry wyszukiwania; wynik to najlepszy punkt w domenie.</div>
+                  </div>
+                </div>
 
-                <div className="flex gap-3 items-center flex-wrap">
-                  <label className="text-sm">Objective</label>
-                  <select
-                    className="border rounded px-2 py-1"
-                    value={objectiveKind}
-                    onChange={(e) => setObjectiveKind(e.target.value as any)}
-                  >
-                    <option value="maximize_variable">maximize</option>
-                    <option value="minimize_variable">minimize</option>
-                    <option value="linear">linear</option>
-                    <option value="target">target</option>
-                  </select>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {/* Objective builder */}
+                  <div className="p-3 border rounded bg-gray-50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Objective</div>
+                      <div className="text-[11px] text-gray-500">
+                        Podgląd:{' '}
+                        <span className="font-mono text-gray-700">
+                          {(() => {
+                            const name = idToName[objectiveVarId] || `var ${objectiveVarId}`;
+                            if (objectiveKind === 'maximize_variable') return `maximize(${name})`;
+                            if (objectiveKind === 'minimize_variable') return `minimize(${name})`;
+                            if (objectiveKind === 'target') return `target(${name} → ${targetValueRaw || '…'}, ${targetLoss})`;
+                            // linear
+                            const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                            const terms = ids
+                              .map((vid) => ({ vid, w: parseFloat(linearWeights[vid] ?? '0') }))
+                              .filter((t) => Number.isFinite(t.w) && t.w !== 0);
+                            const rendered = terms
+                              .slice(0, 3)
+                              .map((t) => `${t.w > 0 ? '+' : ''}${t.w}·${idToName[t.vid] || `var ${t.vid}`}`)
+                              .join(' ');
+                            const more = terms.length > 3 ? ` (+${terms.length - 3})` : '';
+                            const norm = linearNormalizeDomain ? ' normalize=domain' : '';
+                            return `linear(${rendered || '…'}${more}${norm})`;
+                          })()}
+                        </span>
+                      </div>
+                    </div>
 
-                  {objectiveKind !== 'linear' ? (
-                    <select
-                      className="border rounded px-2 py-1"
-                      value={objectiveVarId}
-                      onChange={(e) => setObjectiveVarId(parseInt(e.target.value, 10))}
-                    >
-                      {variables.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.name} (id={v.id})
-                        </option>
+                    <div className="inline-flex rounded border bg-white overflow-hidden">
+                      {([
+                        { k: 'maximize_variable', label: 'Maximize' },
+                        { k: 'minimize_variable', label: 'Minimize' },
+                        { k: 'target', label: 'Target' },
+                        { k: 'linear', label: 'Weighted sum' },
+                      ] as any[]).map((t) => (
+                        <button
+                          key={t.k}
+                          type="button"
+                          onClick={() => setObjectiveKind(t.k)}
+                          className={
+                            'px-3 py-1 text-xs border-r last:border-r-0 ' +
+                            (objectiveKind === t.k ? 'bg-purple-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')
+                          }
+                        >
+                          {t.label}
+                        </button>
                       ))}
-                    </select>
-                  ) : (
-                    <div className="flex items-start gap-3 flex-wrap">
-                      <div className="max-h-40 overflow-auto border rounded p-2 bg-white">
-                        <div className="grid grid-cols-1 gap-1">
-                          {variables
-                            .filter((v) => !!selectedIds[v.id])
-                            .map((v) => (
-                              <label key={v.id} className="flex items-center gap-2 text-xs">
-                                <span className="text-gray-600 w-12">w({v.id})</span>
+                    </div>
+
+                    {(objectiveKind === 'maximize_variable' || objectiveKind === 'minimize_variable' || objectiveKind === 'target') && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <label className="text-xs text-gray-600">Variable</label>
+                        <select
+                          className="border rounded px-2 py-1 text-sm bg-white"
+                          value={objectiveVarId}
+                          onChange={(e) => setObjectiveVarId(parseInt(e.target.value, 10))}
+                        >
+                          {variables.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {objectiveKind === 'target' && (() => {
+                      const dom = idToVar?.[objectiveVarId];
+                      const lo = Number(dom?.min_value);
+                      const hi = Number(dom?.max_value);
+                      const unit = dom?.unit ? String(dom.unit) : '';
+                      const t = parseFloat(targetValueRaw);
+                      const sliderOk = Number.isFinite(lo) && Number.isFinite(hi) && hi > lo;
+                      const sliderVal = Number.isFinite(t) ? Math.min(hi, Math.max(lo, t)) : lo;
+                      return (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+                            <div className="sm:col-span-2">
+                              <label className="text-xs text-gray-600">Target value {unit ? `(${unit})` : ''}</label>
+                              <input
+                                className="border rounded px-2 py-1 w-full bg-white"
+                                type="text"
+                                inputMode="decimal"
+                                placeholder={sliderOk ? `${lo}..${hi}` : 'e.g. 10'}
+                                value={targetValueRaw}
+                                onChange={(e) => setTargetValueRaw(e.target.value)}
+                              />
+                              {sliderOk && (
                                 <input
-                                  className="border rounded px-2 py-1 w-24"
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={linearWeights[v.id] ?? '0'}
-                                  onChange={(e) => setLinearWeights((prev) => ({ ...prev, [v.id]: e.target.value }))}
-                                  placeholder="0"
-                                  title={v.name}
+                                  className="w-full mt-2"
+                                  type="range"
+                                  min={lo}
+                                  max={hi}
+                                  step={(hi - lo) / 200}
+                                  value={sliderVal}
+                                  onChange={(e) => setTargetValueRaw(e.target.value)}
                                 />
-                                <span className="text-gray-500 truncate max-w-[240px]">{v.name}</span>
-                              </label>
-                            ))}
+                              )}
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600">Loss</label>
+                              <select
+                                className="border rounded px-2 py-1 w-full bg-white"
+                                value={targetLoss}
+                                onChange={(e) => setTargetLoss(e.target.value as any)}
+                              >
+                                <option value="abs">abs (robust)</option>
+                                <option value="squared">squared (strong)</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-gray-500">
+                            Im bliżej targetu, tym lepiej. Wybierz <span className="font-medium">abs</span> dla odporności na outliery, <span className="font-medium">squared</span> dla mocniejszej kary.
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {objectiveKind === 'linear' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="text-xs text-gray-600">Weights (selected variables)</div>
+                          <label className="flex items-center gap-2 text-xs text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={linearNormalizeDomain}
+                              onChange={(e) => setLinearNormalizeDomain(e.target.checked)}
+                            />
+                            normalize by domain ([0..1])
+                          </label>
+                        </div>
+
+                        <div className="flex items-start gap-3 flex-wrap">
+                          <div className="max-h-56 overflow-auto border rounded bg-white">
+                            <table className="min-w-[460px] text-xs">
+                              <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                  <th className="text-left p-2">Variable</th>
+                                  <th className="text-left p-2 w-40">Weight</th>
+                                  <th className="text-left p-2 w-28">Quick</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {variables.filter((v) => !!selectedIds[v.id]).map((v) => (
+                                  <tr key={v.id} className="border-t">
+                                    <td className="p-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-gray-800">{v.name}</span>
+                                        <span className="text-[10px] text-gray-400">id={v.id}</span>
+                                        {sourceBadge((v as any)?.source)}
+                                      </div>
+                                    </td>
+                                    <td className="p-2">
+                                      <input
+                                        className="border rounded px-2 py-1 w-full"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={linearWeights[v.id] ?? '0'}
+                                        onChange={(e) => setLinearWeights((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                                      />
+                                    </td>
+                                    <td className="p-2">
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          className="px-2 py-1 border rounded text-[11px]"
+                                          onClick={() => setLinearWeights((prev) => ({ ...prev, [v.id]: '1' }))}
+                                        >
+                                          +1
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="px-2 py-1 border rounded text-[11px]"
+                                          onClick={() => setLinearWeights((prev) => ({ ...prev, [v.id]: '-1' }))}
+                                        >
+                                          -1
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="px-2 py-1 border rounded text-[11px]"
+                                          onClick={() => setLinearWeights((prev) => ({ ...prev, [v.id]: '0' }))}
+                                        >
+                                          0
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <button
+                              className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                              type="button"
+                              onClick={() => {
+                                const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                                const next: Record<number, string> = {};
+                                for (const id of ids) next[id] = '0';
+                                setLinearWeights((prev) => ({ ...prev, ...next }));
+                              }}
+                            >
+                              Reset all
+                            </button>
+                            <button
+                              className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                              type="button"
+                              onClick={() => {
+                                const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                                const next: Record<number, string> = {};
+                                for (const id of ids) next[id] = '1';
+                                setLinearWeights((prev) => ({ ...prev, ...next }));
+                              }}
+                            >
+                              All +1
+                            </button>
+                            <button
+                              className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                              type="button"
+                              onClick={() => {
+                                const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                                const next: Record<number, string> = {};
+                                for (const id of ids) next[id] = '-1';
+                                setLinearWeights((prev) => ({ ...prev, ...next }));
+                              }}
+                            >
+                              All -1
+                            </button>
+                            <button
+                              className="px-3 py-1 border rounded text-xs bg-white hover:bg-gray-50"
+                              type="button"
+                              onClick={() => {
+                                const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                                setLinearWeights((prev) => {
+                                  const out: Record<number, string> = { ...(prev || {}) };
+                                  for (const id of ids) {
+                                    const w = parseFloat(out[id] ?? '0');
+                                    out[id] = Number.isFinite(w) ? String(-w) : '0';
+                                  }
+                                  return out;
+                                });
+                              }}
+                            >
+                              Invert
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-gray-500">
+                          Tip: ustaw dodatnie wagi dla rzeczy które chcesz zwiększać, ujemne dla rzeczy które chcesz zmniejszać.
                         </div>
                       </div>
+                    )}
+                  </div>
 
-                      <div className="flex flex-col gap-2">
-                        <button
-                          className="px-3 py-1 border rounded text-xs"
-                          onClick={() => {
-                            const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
-                            const next: Record<number, string> = {};
-                            for (const id of ids) next[id] = '0';
-                            setLinearWeights((prev) => ({ ...prev, ...next }));
-                          }}
-                          type="button"
+                  {/* Search params */}
+                  <div className="p-3 border rounded bg-white space-y-3">
+                    <div className="text-sm font-medium">Search</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                      <div>
+                        <label className="text-xs text-gray-600">Iterations</label>
+                        <input
+                          className="border rounded px-2 py-1 w-full"
+                          type="number"
+                          min={1}
+                          max={5000}
+                          value={nIter}
+                          onChange={(e) => setNIter(parseInt(e.target.value || '1', 10))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600">Method</label>
+                        <select
+                          className="border rounded px-2 py-1 w-full"
+                          value={optMethod}
+                          onChange={(e) => setOptMethod(e.target.value as any)}
                         >
-                          Reset weights
-                        </button>
-                        <button
-                          className="px-3 py-1 border rounded text-xs"
-                          onClick={() => {
-                            const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
-                            const next: Record<number, string> = {};
-                            for (const id of ids) next[id] = '1';
-                            setLinearWeights((prev) => ({ ...prev, ...next }));
-                          }}
-                          type="button"
-                        >
-                          Set +1 (selected)
-                        </button>
-                        <button
-                          className="px-3 py-1 border rounded text-xs"
-                          onClick={() => {
-                            const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
-                            const next: Record<number, string> = {};
-                            for (const id of ids) next[id] = '-1';
-                            setLinearWeights((prev) => ({ ...prev, ...next }));
-                          }}
-                          type="button"
-                        >
-                          Set -1 (selected)
-                        </button>
+                          <option value="random">random</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600">Seed</label>
+                        <input
+                          className="border rounded px-2 py-1 w-full"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="(auto)"
+                          value={optSeedRaw}
+                          onChange={(e) => setOptSeedRaw(e.target.value)}
+                        />
                       </div>
                     </div>
-                  )}
-
-                  {objectiveKind === 'linear' && (
-                    <label className="flex items-center gap-2 text-xs text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={linearNormalizeDomain}
-                        onChange={(e) => setLinearNormalizeDomain(e.target.checked)}
-                      />
-                      normalize by domain ([0..1])
-                    </label>
-                  )}
-
-                  {objectiveKind === 'target' && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <label className="text-xs text-gray-600">target</label>
-                      <input
-                        className="border rounded px-2 py-1 w-28"
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="e.g. 10"
-                        value={targetValueRaw}
-                        onChange={(e) => setTargetValueRaw(e.target.value)}
-                      />
-                      <label className="text-xs text-gray-600 ml-2">loss</label>
-                      <select
-                        className="border rounded px-2 py-1"
-                        value={targetLoss}
-                        onChange={(e) => setTargetLoss(e.target.value as any)}
-                      >
-                        <option value="abs">abs</option>
-                        <option value="squared">squared</option>
-                      </select>
+                    <div className="text-[11px] text-gray-500">
+                      Na razie używamy random search w domenie. Deterministyczny scoring, bez LLM.
                     </div>
-                  )}
-
-                  <label className="text-sm ml-4">Iterations</label>
-                  <input
-                    className="border rounded px-2 py-1 w-28"
-                    type="number"
-                    min={1}
-                    max={5000}
-                    value={nIter}
-                    onChange={(e) => setNIter(parseInt(e.target.value || '1', 10))}
-                  />
-
-                  <label className="text-sm ml-4">Method</label>
-                  <select
-                    className="border rounded px-2 py-1"
-                    value={optMethod}
-                    onChange={(e) => setOptMethod(e.target.value as any)}
-                  >
-                    <option value="random">random</option>
-                  </select>
-
-                  <label className="text-sm ml-4">Seed</label>
-                  <input
-                    className="border rounded px-2 py-1 w-28"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="(auto)"
-                    value={optSeedRaw}
-                    onChange={(e) => setOptSeedRaw(e.target.value)}
-                  />
-
-                  <span className="text-xs text-gray-500">(random within domain; placeholder objective)</span>
+                  </div>
                 </div>
 
                 <div>
