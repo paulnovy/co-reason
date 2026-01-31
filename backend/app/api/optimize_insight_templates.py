@@ -41,7 +41,9 @@ def summarize_optimize_result(variable_ids: List[int], best_point: Dict[str, flo
                     w_str = str(w)
                 parts.append(f"{w_str}·{name or ('var ' + vid)}")
             more = "" if len(objective.get("terms")) <= 5 else f" (+{len(objective.get('terms'))-5} more)"
-            bullets.append("Cel: linear: " + " + ".join(parts) + more + ".")
+            norm = objective.get("normalize")
+            norm_suffix = "" if not norm else f" (normalize={norm})"
+            bullets.append("Cel: linear: " + " + ".join(parts) + more + norm_suffix + ".")
         elif kind == "target" and objective.get("variable_id") is not None:
             vid = str(objective.get("variable_id"))
             tgt = objective.get("target")
