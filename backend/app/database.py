@@ -18,4 +18,5 @@ def init_db() -> None:
     # Import models so they register with Base.metadata
     from .models import variable as _variable  # noqa: F401
     from .models import relationship as _relationship  # noqa: F401
+    from .models import experiment_run as _experiment_run  # noqa: F401
     Base.metadata.create_all(bind=engine)
