@@ -1,5 +1,6 @@
-- [x] Task 1: Lista zmiennych (API -> UI) bez ReactFlow, stabilny render
-- [x] Task 2: Prosty ReactFlow grid (węzły bez relacji), stabilny render
-- [x] Task 3: Mapowanie enumów (lowercase -> uppercase) w UI
-- [x] Task 4: Mini weryfikacja (render check headless + curl) po każdej zmianie
-- [x] Task 5: Dodaj relacje (edges) z /relationships i pokaż w ReactFlow
+- [x] Task 1: Zdefiniuj schematy Pydantic i endpoint `POST /experiments/doe` (request/response)
+- [x] Task 2: Implementacja DOE: Sobol (pierwszy) z twardymi min/max (domain enforcement)
+- [x] Task 3: Dodaj testy backendu dla DOE (min. 2 przypadki + out-of-domain reject)
+- [x] Task 4: Front: modal "Run DOE" (wybór zmiennych + parametry)
+- [x] Task 5: Front: wyświetlenie wyników DOE (tabela)
+- [x] Task 6: Controlled template dla insightów DOE (backend stub)

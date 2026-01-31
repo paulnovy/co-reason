@@ -4,6 +4,10 @@
 - Front: http://<host>:5173
 - API: http://<host>:8000/docs
 
+## DOE endpoints (Sprint 1)
+- `POST /experiments/doe` — generate safe DOE points (sobol|lhs) within strict min/max
+- `POST /experiments/doe/insight` — controlled-template narrative summary (no LLM)
+
 ## systemd user services
 Recommended approach: run backend + frontend as `systemd --user` services.
 
