@@ -718,6 +718,7 @@ function App() {
                                       body: JSON.stringify(req),
                                     });
                                     setDoeResult(data);
+                                    setDoeError(null);
                                     setDoeOpen(true);
                                     persistRun('doe', `${full.title || 'DOE'} (replay)`, req, data);
                                   }
@@ -729,6 +730,7 @@ function App() {
                                       body: JSON.stringify(req),
                                     });
                                     setOptimizeResult(data);
+                                    setOptimizeError(null);
                                     setOptimizeOpen(true);
                                     persistRun('optimize', `${full.title || 'Optimize'} (replay)`, req, data);
                                   }
