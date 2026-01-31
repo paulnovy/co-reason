@@ -31,6 +31,18 @@ class OptimizeResponse(BaseModel):
     meta: Dict[str, Any] = Field(default_factory=dict)
 
 
+class OptimizeInsightRequest(BaseModel):
+    variable_ids: List[int]
+    best_point: Dict[str, float]
+    meta: Dict[str, Any] = Field(default_factory=dict)
+
+
+class OptimizeInsightResponse(BaseModel):
+    summary: str
+    bullets: List[str]
+    meta: Dict[str, Any] = Field(default_factory=dict)
+
+
 router = APIRouter(prefix="/experiments", tags=["experiments"])
 
 
@@ -123,6 +135,7 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
             "best_score": best_score,
             "initial_points": len(initial_iter),
             "max_initial_points": req.max_initial_points,
+            "n_iter": req.n_iter,
             "variable_order": [v.id for v in ordered],
             "domain": {
                 str(v.id): {"min": v.min_value, "max": v.max_value, "unit": v.unit}
@@ -130,3 +143,15 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
             },
         },
     )
+
+
+@router.post("/optimize/insight", response_model=OptimizeInsightResponse)
+def optimize_insight(req: OptimizeInsightRequest) -> OptimizeInsightResponse:
+    """Controlled-template narrative for optimize results (no LLM)."""
+    if len(set(req.variable_ids)) != len(req.variable_ids):
+        raise HTTPException(status_code=422, detail="variable_ids must be unique")
+
+    from .optimize_insight_templates import summarize_optimize_result
+
+    insight = summarize_optimize_result(req.variable_ids, req.best_point, req.meta)
+    return OptimizeInsightResponse(summary=insight.summary, bullets=insight.bullets, meta=insight.meta)

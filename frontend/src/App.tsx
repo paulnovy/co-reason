@@ -434,6 +434,41 @@ function App() {
 
                 {optimizeResult && (
                   <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Optimize result</div>
+                      <button
+                        className="px-3 py-1 bg-emerald-600 text-white rounded text-xs"
+                        onClick={async () => {
+                          try {
+                            const data = await fetchJson('/experiments/optimize/insight', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                variable_ids: optimizeResult.variable_ids,
+                                best_point: optimizeResult.best_point,
+                                meta: optimizeResult.meta || {},
+                              }),
+                            });
+                            setOptimizeResult((prev: any) => ({ ...prev, insight: data }));
+                          } catch (err: any) {
+                            setOptimizeError(err?.message || String(err));
+                          }
+                        }}
+                      >
+                        Generate insight
+                      </button>
+                    </div>
+                    {optimizeResult.insight && (
+                      <div className="p-3 bg-gray-50 border rounded">
+                        <div className="text-sm font-medium">{optimizeResult.insight.summary}</div>
+                        <ul className="list-disc pl-5 mt-2 text-xs text-gray-700 space-y-1">
+                          {(optimizeResult.insight.bullets || []).map((b: string, i: number) => (
+                            <li key={i}>{b}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="text-sm font-medium">Best point</div>
                       <div className="flex items-center gap-3 text-xs text-gray-500">
