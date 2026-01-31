@@ -1,16 +1,18 @@
 import { memo } from 'react';
 import type React from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { motion } from 'framer-motion';
 import { ChevronRight, ChevronDown, Database, User, Bot, Layers } from 'lucide-react';
 import type { Variable, VariableSource, VariableCategory } from '../types';
 import { cn } from '../lib/utils';
 import { useUIStore } from '../stores/uiStore';
 
-export interface VariableNodeData {
+export interface VariableNodeData extends Record<string, unknown> {
   variable: Variable;
   hasChildren: boolean;
 }
+
+export type VariableNodeType = Node<VariableNodeData>;
 
 const sourceConfig: Record<VariableSource, { color: string; icon: React.ReactNode; label: string }> = {
   HARD_DATA: {
@@ -42,7 +44,7 @@ const categoryLabel: Record<VariableCategory, string> = {
   SUBJECTIVE_FACTOR: 'Subjective Factor',
 };
 
-function VariableNodeComponent({ data, id }: NodeProps<VariableNodeData>) {
+function VariableNodeComponent({ data, id }: NodeProps<VariableNodeType>) {
   const { variable, hasChildren } = data;
   const { expandedNodes, toggleNodeExpanded, setSelectedVariableId, setDetailPanelOpen } = useUIStore();
   

@@ -1,15 +1,16 @@
-import { Variable, VariableList, CreateVariableRequest, UpdateVariableRequest } from '../types';
+import type { Variable, VariableList, CreateVariableRequest, UpdateVariableRequest } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 class APIError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public data?: unknown
-  ) {
+  status: number;
+  data?: unknown;
+
+  constructor(message: string, status: number, data?: unknown) {
     super(message);
     this.name = 'APIError';
+    this.status = status;
+    this.data = data;
   }
 }
 

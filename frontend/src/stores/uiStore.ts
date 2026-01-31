@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AIAssistantMessage, VariableSource } from '../types';
+import type { AIAssistantMessage, VariableSource } from '../types';
 
 interface UIState {
   // Selected variable
@@ -35,7 +35,7 @@ interface UIState {
   setSearchQuery: (query: string) => void;
 }
 
-export const useUIStore = create<UIState>((set, get) => ({
+export const useUIStore = create<UIState>((set) => ({
   // Selected variable
   selectedVariableId: null,
   setSelectedVariableId: (id) => set({ selectedVariableId: id }),
