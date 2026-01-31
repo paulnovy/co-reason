@@ -682,10 +682,34 @@ function App() {
                     <div className="text-[10px] text-gray-600 mt-1">{runDetail.run_type} • {runDetail.created_at}</div>
                     <details className="mt-2">
                       <summary className="text-xs cursor-pointer">request_json</summary>
+                      <div className="flex justify-end mt-2">
+                        <button
+                          className="px-2 py-1 border rounded text-[10px]"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(JSON.stringify(runDetail.request_json, null, 2));
+                          }}
+                        >
+                          Copy
+                        </button>
+                      </div>
                       <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.request_json, null, 2)}</pre>
                     </details>
                     <details className="mt-2">
                       <summary className="text-xs cursor-pointer">response_json</summary>
+                      <div className="flex justify-end mt-2">
+                        <button
+                          className="px-2 py-1 border rounded text-[10px]"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(JSON.stringify(runDetail.response_json, null, 2));
+                          }}
+                        >
+                          Copy
+                        </button>
+                      </div>
                       <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.response_json, null, 2)}</pre>
                     </details>
                   </div>
