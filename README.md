@@ -7,6 +7,7 @@ Human‑AI Co‑Reasoning Workspace for progressive modeling, trustworthy DOE, a
 - **Sprint 1**: Safe DOE generation (`/experiments/doe`) + controlled insight template (`/experiments/doe/insight`).
 - **Sprint 2**: Safe Optimize workflow (objective + DOE seeding) and frontend build stability improvements.
 - **Sprint 3**: Persisted runs (`/runs`) + run history UI + restore + replay + delete + run detail viewer.
+- **Sprint 4**: Objective v2 — linear weighted-sum objective for optimize + UI support + improved insight rendering.
 - PostgreSQL supported (docker compose), tests use SQLite.
 
 **LLM is out of scope** for this project right now (controlled templates only).

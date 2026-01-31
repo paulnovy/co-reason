@@ -1,3 +1,4 @@
 - [x] Task 1: Backend endpoint `POST /experiments/optimize` (stub random, strict domain)
 - [x] Task 2: Testy backendu optymalizacji (domain reject + shapes)
 - [x] Task 3: Front: provenance colors in variable list + DOE results + insight
+- [x] Task 4: Objective v2 — linear weighted-sum objective (backend + UI + insight)
