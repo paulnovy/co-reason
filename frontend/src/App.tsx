@@ -670,30 +670,31 @@ function App() {
                         <div className="flex items-center justify-between gap-2">
                           <button
                             className="text-left flex-1"
-                            onClick={() => {
+                            onClick={async () => {
                               try {
-                                if (r.run_type === 'doe') {
-                                  setDoeResult(r.response_json);
+                                const full = await fetchJson(`/runs/${r.id}`);
+                                if (full.run_type === 'doe') {
+                                  setDoeResult(full.response_json);
                                   setDoeError(null);
                                   setDoeOpen(true);
                                   const next: Record<number, boolean> = {};
-                                  for (const vid of (r.response_json?.variable_ids || [])) next[Number(vid)] = true;
+                                  for (const vid of (full.response_json?.variable_ids || [])) next[Number(vid)] = true;
                                   setSelectedIds(next);
                                 }
-                                if (r.run_type === 'optimize') {
-                                  setOptimizeResult(r.response_json);
+                                if (full.run_type === 'optimize') {
+                                  setOptimizeResult(full.response_json);
                                   setOptimizeError(null);
                                   setOptimizeOpen(true);
                                   const next: Record<number, boolean> = {};
-                                  for (const vid of (r.response_json?.variable_ids || [])) next[Number(vid)] = true;
+                                  for (const vid of (full.response_json?.variable_ids || [])) next[Number(vid)] = true;
                                   setSelectedIds(next);
-                                  const ov = Number(r.response_json?.meta?.objective?.variable_id);
+                                  const ov = Number(full.response_json?.meta?.objective?.variable_id);
                                   if (Number.isFinite(ov)) setObjectiveVarId(ov);
-                                  const ok = r.response_json?.meta?.objective?.kind;
+                                  const ok = full.response_json?.meta?.objective?.kind;
                                   if (ok === 'maximize_variable' || ok === 'minimize_variable') setObjectiveKind(ok);
                                 }
-                              } catch {
-                                // ignore
+                              } catch (e: any) {
+                                setRunsError(e?.message || String(e));
                               }
                             }}
                           >
