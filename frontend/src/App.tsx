@@ -675,11 +675,23 @@ function App() {
                               setDoeResult(r.response_json);
                               setDoeError(null);
                               setDoeOpen(true);
+                              // also set selection to match variable_ids
+                              const next: Record<number, boolean> = {};
+                              for (const vid of (r.response_json?.variable_ids || [])) next[Number(vid)] = true;
+                              setSelectedIds(next);
                             }
                             if (r.run_type === 'optimize') {
                               setOptimizeResult(r.response_json);
                               setOptimizeError(null);
                               setOptimizeOpen(true);
+                              const next: Record<number, boolean> = {};
+                              for (const vid of (r.response_json?.variable_ids || [])) next[Number(vid)] = true;
+                              setSelectedIds(next);
+                              // try to restore objective from meta
+                              const ov = Number(r.response_json?.meta?.objective?.variable_id);
+                              if (Number.isFinite(ov)) setObjectiveVarId(ov);
+                              const ok = r.response_json?.meta?.objective?.kind;
+                              if (ok === 'maximize_variable' || ok === 'minimize_variable') setObjectiveKind(ok);
                             }
                           } catch {
                             // ignore
