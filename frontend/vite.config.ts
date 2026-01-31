@@ -14,4 +14,23 @@ export default defineConfig({
       '/runs': 'http://localhost:8000',
     },
   },
+  build: {
+    // Keep chunks smaller (Vite warns when a single chunk > 500kB minified)
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+
+          // NOTE: keep react/react-dom in vendor to avoid circular chunks
+          if (id.includes('/@tanstack/react-query/')) return 'react-query';
+          if (id.includes('/@xyflow/react/')) return 'xyflow';
+          if (id.includes('/framer-motion/')) return 'framer-motion';
+          if (id.includes('/lucide-react/')) return 'icons';
+          if (id.includes('/zustand/')) return 'zustand';
+
+          return 'vendor';
+        },
+      },
+    },
+  },
 })
