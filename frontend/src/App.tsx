@@ -757,9 +757,43 @@ function App() {
                       <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span>best_score: {Number(optimizeResult?.meta?.best_score ?? NaN).toFixed(4)}</span>
                         <span>
-                          objective: {optimizeResult?.meta?.objective?.kind || '—'}
-                          {' '}
-                          ({idToName[Number(optimizeResult?.meta?.objective?.variable_id)] || `var ${optimizeResult?.meta?.objective?.variable_id ?? '—'}`})
+                          objective:{' '}
+                          {(() => {
+                            const obj: any = optimizeResult?.meta?.objective;
+                            const kind = obj?.kind;
+                            if (!kind) return '—';
+
+                            if (kind === 'linear') {
+                              const terms: any[] = Array.isArray(obj?.terms) ? obj.terms : [];
+                              const normalize = obj?.normalize;
+                              const rendered = terms
+                                .slice(0, 3)
+                                .map((t) => {
+                                  const vid = Number(t?.variable_id);
+                                  const w = Number(t?.weight);
+                                  const name = idToName[vid] || `var ${vid}`;
+                                  const wStr = Number.isFinite(w) ? w.toFixed(3).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1') : String(t?.weight);
+                                  return `${wStr}·${name}`;
+                                })
+                                .join(' + ');
+                              const more = terms.length > 3 ? ` (+${terms.length - 3})` : '';
+                              const norm = normalize ? `, normalize=${normalize}` : '';
+                              return `linear: ${rendered}${more}${norm}`;
+                            }
+
+                            if (kind === 'target') {
+                              const vid = Number(obj?.variable_id);
+                              const name = idToName[vid] || `var ${obj?.variable_id ?? '—'}`;
+                              const tgt = obj?.target;
+                              const loss = obj?.loss || 'abs';
+                              return `target: ${name} → ${tgt} (loss=${loss})`;
+                            }
+
+                            // maximize/minimize
+                            const vid = Number(obj?.variable_id);
+                            const name = idToName[vid] || `var ${obj?.variable_id ?? '—'}`;
+                            return `${kind} (${name})`;
+                          })()}
                         </span>
                         <span>
                           seeded: {optimizeResult?.meta?.initial_points ?? 0}
