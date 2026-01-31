@@ -505,7 +505,7 @@ function App() {
                             method: optMethod,
                             seed: Number.isFinite(seed as any) ? seed : null,
                             objective: { kind: objectiveKind, variable_id: objectiveVarId },
-                            initial_points_count: initial_points.length,
+                            initial_points,
                             max_initial_points: Math.max(0, maxInitialPoints),
                           },
                           data
@@ -704,6 +704,42 @@ function App() {
 
                           <div className="flex items-center gap-2">
                             <div className="text-[10px] text-gray-500">{r.run_type} • #{r.id}</div>
+
+                            <button
+                              className="px-2 py-1 border rounded text-[10px]"
+                              onClick={async () => {
+                                try {
+                                  const full = await fetchJson(`/runs/${r.id}`);
+                                  if (full.run_type === 'doe') {
+                                    const req = full.request_json || {};
+                                    const data = await fetchJson('/experiments/doe', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(req),
+                                    });
+                                    setDoeResult(data);
+                                    setDoeOpen(true);
+                                    persistRun('doe', `${full.title || 'DOE'} (replay)`, req, data);
+                                  }
+                                  if (full.run_type === 'optimize') {
+                                    const req = full.request_json || {};
+                                    const data = await fetchJson('/experiments/optimize', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(req),
+                                    });
+                                    setOptimizeResult(data);
+                                    setOptimizeOpen(true);
+                                    persistRun('optimize', `${full.title || 'Optimize'} (replay)`, req, data);
+                                  }
+                                } catch (e: any) {
+                                  setRunsError(e?.message || String(e));
+                                }
+                              }}
+                            >
+                              Replay
+                            </button>
+
                             <button
                               className="px-2 py-1 border rounded text-[10px]"
                               onClick={async () => {
