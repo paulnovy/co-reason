@@ -490,7 +490,12 @@ function App() {
                               body: JSON.stringify({
                                 variable_ids: optimizeResult.variable_ids,
                                 best_point: optimizeResult.best_point,
-                                meta: optimizeResult.meta || {},
+                                meta: {
+                                  ...(optimizeResult.meta || {}),
+                                  variable_names: Object.fromEntries(
+                                    (optimizeResult.variable_ids || []).map((vid: number) => [String(vid), idToName[vid] || String(vid)])
+                                  ),
+                                },
                               }),
                             });
                             setOptimizeResult((prev: any) => ({ ...prev, insight: data }));

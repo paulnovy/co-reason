@@ -21,8 +21,17 @@ def summarize_optimize_result(variable_ids: List[int], best_point: Dict[str, flo
     domain = meta.get("domain") if isinstance(meta, dict) else None
 
     bullets.append("Optymalizacja wykonana bezpiecznie w granicach domen zmiennych (twarde min/max).")
+    variable_names = meta.get("variable_names") if isinstance(meta, dict) else None
+
     if isinstance(objective, dict) and objective.get("kind") and objective.get("variable_id"):
-        bullets.append(f"Cel: {objective.get('kind')} (variable_id={objective.get('variable_id')}).")
+        vid = str(objective.get("variable_id"))
+        vname = None
+        if isinstance(variable_names, dict):
+            vname = variable_names.get(vid)
+        if vname:
+            bullets.append(f"Cel: {objective.get('kind')} ({vname}, variable_id={vid}).")
+        else:
+            bullets.append(f"Cel: {objective.get('kind')} (variable_id={vid}).")
     if seeded is not None:
         bullets.append(f"Seedowanie punktami startowymi: {seeded}.")
     if n_iter:
