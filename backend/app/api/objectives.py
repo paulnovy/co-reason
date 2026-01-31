@@ -27,6 +27,7 @@ class ObjectiveSpec(BaseModel):
 
     # for linear objective
     terms: List[LinearTerm] = Field(default_factory=list)
+    normalize: Optional[str] = Field(None, pattern="^(domain)$")
 
     # for target objective
     target: Optional[float] = None
