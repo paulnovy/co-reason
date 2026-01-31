@@ -105,6 +105,27 @@ function App() {
       });
     }
   }, [variables]);
+
+  // keep linearWeights populated for selected variables
+  useEffect(() => {
+    if (objectiveKind !== 'linear') return;
+    const selected = Object.entries(selectedIds)
+      .filter(([, v]) => v)
+      .map(([k]) => Number(k))
+      .filter((n) => Number.isFinite(n));
+    if (selected.length === 0) return;
+    setLinearWeights((prev) => {
+      const next = { ...(prev || {}) };
+      let changed = false;
+      for (const vid of selected) {
+        if (next[vid] === undefined) {
+          next[vid] = '0';
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [objectiveKind, selectedIds]);
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [useDoeAsInitial, setUseDoeAsInitial] = useState(true);
@@ -410,6 +431,18 @@ function App() {
                           type="button"
                         >
                           Set +1 (selected)
+                        </button>
+                        <button
+                          className="px-3 py-1 border rounded text-xs"
+                          onClick={() => {
+                            const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                            const next: Record<number, string> = {};
+                            for (const id of ids) next[id] = '-1';
+                            setLinearWeights((prev) => ({ ...prev, ...next }));
+                          }}
+                          type="button"
+                        >
+                          Set -1 (selected)
                         </button>
                       </div>
                     </div>
