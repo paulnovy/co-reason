@@ -69,6 +69,9 @@ function App() {
 
   const useGraph = import.meta.env.VITE_USE_GRAPH === 'true';
 
+  type TabKey = 'variables' | 'doe' | 'optimize' | 'runs';
+  const [tab, setTab] = useState<TabKey>('variables');
+
   // DOE UI (baseline view)
   const [doeOpen, setDoeOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Record<number, boolean>>({});
@@ -153,15 +156,42 @@ function App() {
 
   return (
     <div className="w-screen h-screen bg-gray-50 text-gray-900">
-      <header className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Product Optimizer</h1>
-          <p className="text-sm text-gray-500">
-            {useGraph ? 'ReactFlow grid (diagnostic)' : 'Variables list (stable)'}
-          </p>
+      <header className="border-b border-gray-200 bg-white">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Product Optimizer</h1>
+            <p className="text-sm text-gray-500">
+              {useGraph ? 'ReactFlow graph (diagnostic)' : 'DOE + optimization workspace'}
+            </p>
+          </div>
         </div>
-        <div className="text-xs text-gray-400">API: /variables → 8000 (proxy)</div>
+
+        {!useGraph && (
+          <div className="px-6 pb-3">
+            <nav className="inline-flex rounded-lg border bg-white overflow-hidden">
+              {([
+                { k: 'variables', label: 'Variables' },
+                { k: 'doe', label: 'DOE' },
+                { k: 'optimize', label: 'Optimize' },
+                { k: 'runs', label: 'Runs' },
+              ] as any[]).map((t) => (
+                <button
+                  key={t.k}
+                  type="button"
+                  onClick={() => setTab(t.k)}
+                  className={
+                    'px-4 py-2 text-sm border-r last:border-r-0 ' +
+                    (tab === t.k ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')
+                  }
+                >
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
       </header>
+
       <main className={useGraph ? 'w-full h-[calc(100vh-64px)]' : 'p-6'}>
         {error ? (
           <div className="text-red-600">{error}</div>
@@ -170,27 +200,64 @@ function App() {
         ) : useGraph ? (
           <VariableGraph variables={variables} isLoading={loading} />
         ) : (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <button
-                className="px-4 py-2 bg-gray-900 text-white rounded"
-                onClick={() => setDoeOpen((v) => !v)}
+                className={
+                  'p-4 rounded border text-left bg-white hover:bg-gray-50 ' +
+                  (tab === 'variables' ? 'border-gray-900' : 'border-gray-200')
+                }
+                onClick={() => setTab('variables')}
+                type="button"
               >
-                Run DOE
+                <div className="text-sm font-medium">Variables</div>
+                <div className="text-xs text-gray-500 mt-1">Lista zmiennych + domeny (min/max) i provenance.</div>
               </button>
-              <div className="text-xs text-gray-500">Endpoint: POST /experiments/doe</div>
-
               <button
-                className="px-4 py-2 bg-purple-700 text-white rounded"
-                onClick={() => setOptimizeOpen((v) => !v)}
+                className={
+                  'p-4 rounded border text-left bg-white hover:bg-gray-50 ' +
+                  (tab === 'doe' ? 'border-gray-900' : 'border-gray-200')
+                }
+                onClick={() => { setTab('doe'); setDoeOpen(true); }}
+                type="button"
               >
-                Run Optimize
+                <div className="text-sm font-medium">DOE</div>
+                <div className="text-xs text-gray-500 mt-1">Wygeneruj punkty eksperymentu w granicach domeny.</div>
               </button>
-              <div className="text-xs text-gray-500">Endpoint: POST /experiments/optimize</div>
+              <button
+                className={
+                  'p-4 rounded border text-left bg-white hover:bg-gray-50 ' +
+                  (tab === 'optimize' ? 'border-gray-900' : 'border-gray-200')
+                }
+                onClick={() => { setTab('optimize'); setOptimizeOpen(true); }}
+                type="button"
+              >
+                <div className="text-sm font-medium">Optimize</div>
+                <div className="text-xs text-gray-500 mt-1">Ustaw objective i znajdź najlepszy punkt (random search).</div>
+              </button>
             </div>
 
-            {doeOpen && (
+            {tab === 'variables' && (
               <div className="p-4 bg-white rounded border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium">Variables</div>
+                    <div className="text-xs text-gray-500">Kliknij DOE/Optimize w górnym menu, żeby uruchomić workflow.</div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500">Zarządzanie (create/edit) zrobimy później — na razie to tylko podgląd + wybór do DOE/Optimize.</div>
+              </div>
+            )}
+
+            {tab === 'doe' && doeOpen && (
+              <div className="p-4 bg-white rounded border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold">DOE</div>
+                    <div className="text-xs text-gray-500">Wygeneruj punkty eksperymentu w bezpiecznej domenie.</div>
+                  </div>
+                </div>
+
                 <div className="text-sm font-medium">DOE settings</div>
 
                 <div className="flex gap-3 items-center">
@@ -269,7 +336,7 @@ function App() {
                     Generate
                   </button>
 
-                  <button className="px-4 py-2 border rounded" onClick={() => { setDoeOpen(false); setDoeError(null); setDoeResult(null); }}>
+                  <button className="px-4 py-2 border rounded" onClick={() => { setTab('variables'); setDoeOpen(false); setDoeError(null); setDoeResult(null); }}>
                     Close
                   </button>
                 </div>
@@ -354,7 +421,7 @@ function App() {
               </div>
             )}
 
-            {optimizeOpen && (
+            {tab === 'optimize' && optimizeOpen && (
               <div className="p-4 bg-white rounded border border-gray-200 space-y-3">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div>
@@ -853,7 +920,7 @@ function App() {
                     Run
                   </button>
 
-                  <button className="px-4 py-2 border rounded" onClick={() => { setOptimizeOpen(false); setOptimizeError(null); setOptimizeResult(null); }}>
+                  <button className="px-4 py-2 border rounded" onClick={() => { setTab('variables'); setOptimizeOpen(false); setOptimizeError(null); setOptimizeResult(null); }}>
                     Close
                   </button>
                 </div>
@@ -1008,9 +1075,14 @@ function App() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <div className="text-sm font-medium mb-2">Variables</div>
+            {tab === 'variables' && (
+              <div className="p-4 bg-white rounded border border-gray-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-sm font-semibold">Variables</div>
+                    <div className="text-xs text-gray-500">Podgląd zmiennych, domen i źródeł.</div>
+                  </div>
+                </div>
                 <ul className="space-y-2">
                   {variables.map((v) => (
                     <li key={v.id} className="p-3 bg-white rounded border border-gray-200">
@@ -1019,78 +1091,84 @@ function App() {
                         {sourceBadge(v.source)}
                       </div>
                       <div className="text-xs text-gray-500">{String(v.variable_type)}</div>
+                      <div className="text-[11px] text-gray-500 mt-1">
+                        Domain: [{v.min_value ?? '—'}..{v.max_value ?? '—'}] {v.unit || ''}
+                      </div>
                     </li>
                   ))}
                 </ul>
               </div>
+            )}
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-medium">Run history</div>
-                  <div className="flex items-center gap-2">
-                    <button className="px-3 py-1 border rounded text-xs" onClick={refreshRuns}>Refresh</button>
-                    <button
-                      className="px-3 py-1 border rounded text-xs"
-                      onClick={() => setRunDetail(null)}
-                      title="Close details"
-                    >
-                      Clear detail
-                    </button>
-                  </div>
-                </div>
-                {runsNotice && <pre className="text-xs text-emerald-700 whitespace-pre-wrap">{runsNotice}</pre>}
-                {runsError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{runsError}</pre>}
-                {runDetail && (
-                  <div className="mb-3 p-3 bg-gray-50 border rounded">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium">Run detail #{runDetail.id}</div>
-                      <button className="px-2 py-1 border rounded text-xs" onClick={() => setRunDetail(null)}>
-                        Close
+            {tab === 'runs' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-medium">Run history</div>
+                    <div className="flex items-center gap-2">
+                      <button className="px-3 py-1 border rounded text-xs" onClick={refreshRuns}>Refresh</button>
+                      <button
+                        className="px-3 py-1 border rounded text-xs"
+                        onClick={() => setRunDetail(null)}
+                        title="Close details"
+                      >
+                        Clear detail
                       </button>
                     </div>
-                    <div className="text-[10px] text-gray-600 mt-1">{runDetail.run_type} • {runDetail.created_at}</div>
-                    <details className="mt-2">
-                      <summary className="text-xs cursor-pointer">request_json</summary>
-                      <div className="flex justify-end mt-2">
-                        <button
-                          className="px-2 py-1 border rounded text-[10px]"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(JSON.stringify(runDetail.request_json, null, 2));
-                            setRunsNotice('Copied request_json to clipboard.');
-                          }}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.request_json, null, 2)}</pre>
-                    </details>
-                    <details className="mt-2">
-                      <summary className="text-xs cursor-pointer">response_json</summary>
-                      <div className="flex justify-end mt-2">
-                        <button
-                          className="px-2 py-1 border rounded text-[10px]"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(JSON.stringify(runDetail.response_json, null, 2));
-                            setRunsNotice('Copied response_json to clipboard.');
-                          }}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.response_json, null, 2)}</pre>
-                    </details>
                   </div>
-                )}
+                  {runsNotice && <pre className="text-xs text-emerald-700 whitespace-pre-wrap">{runsNotice}</pre>}
+                  {runsError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{runsError}</pre>}
+                  {runDetail && (
+                    <div className="mb-3 p-3 bg-gray-50 border rounded">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">Run detail #{runDetail.id}</div>
+                        <button className="px-2 py-1 border rounded text-xs" onClick={() => setRunDetail(null)}>
+                          Close
+                        </button>
+                      </div>
+                      <div className="text-[10px] text-gray-600 mt-1">{runDetail.run_type} • {runDetail.created_at}</div>
+                      <details className="mt-2">
+                        <summary className="text-xs cursor-pointer">request_json</summary>
+                        <div className="flex justify-end mt-2">
+                          <button
+                            className="px-2 py-1 border rounded text-[10px]"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(JSON.stringify(runDetail.request_json, null, 2));
+                              setRunsNotice('Copied request_json to clipboard.');
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.request_json, null, 2)}</pre>
+                      </details>
+                      <details className="mt-2">
+                        <summary className="text-xs cursor-pointer">response_json</summary>
+                        <div className="flex justify-end mt-2">
+                          <button
+                            className="px-2 py-1 border rounded text-[10px]"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(JSON.stringify(runDetail.response_json, null, 2));
+                              setRunsNotice('Copied response_json to clipboard.');
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <pre className="text-[10px] whitespace-pre-wrap mt-2">{JSON.stringify(runDetail.response_json, null, 2)}</pre>
+                      </details>
+                    </div>
+                  )}
 
-                <div className="space-y-2">
-                  {runs.length === 0 ? (
-                    <div className="text-xs text-gray-500">No runs saved yet.</div>
-                  ) : (
-                    runs.slice(0, 25).map((r: any) => (
+                  <div className="space-y-2">
+                    {runs.length === 0 ? (
+                      <div className="text-xs text-gray-500">No runs saved yet.</div>
+                    ) : (
+                      runs.slice(0, 25).map((r: any) => (
                       <div key={r.id} className="p-3 bg-white rounded border border-gray-200 hover:bg-gray-50">
                         <div className="flex items-center justify-between gap-2">
                           <button
@@ -1242,6 +1320,7 @@ function App() {
                 </div>
               </div>
             </div>
+          )}
           </div>
         )}
       </main>
