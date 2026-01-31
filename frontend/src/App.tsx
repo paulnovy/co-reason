@@ -505,7 +505,7 @@ function App() {
                         <span>
                           objective: {optimizeResult?.meta?.objective?.kind || '—'}
                           {' '}
-                          ({idToName[optimizeResult?.meta?.objective?.variable_id] || `var ${optimizeResult?.meta?.objective?.variable_id ?? '—'}`})
+                          ({idToName[Number(optimizeResult?.meta?.objective?.variable_id)] || `var ${optimizeResult?.meta?.objective?.variable_id ?? '—'}`})
                         </span>
                         <span>
                           seeded: {optimizeResult?.meta?.initial_points ?? 0}
