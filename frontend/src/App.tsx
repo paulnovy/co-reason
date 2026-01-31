@@ -7,17 +7,32 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchJson = async (url: string, options?: RequestInit) => {
+    const resp = await fetch(url, options);
+    const ct = resp.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(
+        `Expected JSON from ${url} (status ${resp.status}), got content-type=${ct}. ` +
+          `Body starts with: ${JSON.stringify(text.slice(0, 120))}`
+      );
+    }
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(JSON.stringify(data));
+    return data;
+  };
+
   useEffect(() => {
-    fetch('/variables')
-      .then((r) => r.json())
-      .then((data: VariableList) => {
+    (async () => {
+      try {
+        const data = (await fetchJson('/variables')) as VariableList;
         setVariables(data.items || []);
-        setLoading(false);
-      })
-      .catch((e) => {
+      } catch (e: any) {
         setError(e?.message || 'Failed to load');
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   const useGraph = import.meta.env.VITE_USE_GRAPH === 'true';
@@ -29,6 +44,19 @@ function App() {
   const [nPoints, setNPoints] = useState(20);
   const [doeResult, setDoeResult] = useState<any>(null);
   const [doeError, setDoeError] = useState<string | null>(null);
+
+  // Optimize UI (stub)
+  const [optimizeOpen, setOptimizeOpen] = useState(false);
+  const [nIter, setNIter] = useState(30);
+  const [optMethod, setOptMethod] = useState<'random'>('random');
+  const [optSeedRaw, setOptSeedRaw] = useState<string>('1');
+  const [objectiveKind, setObjectiveKind] = useState<'maximize_variable' | 'minimize_variable'>('maximize_variable');
+  const [objectiveVarId, setObjectiveVarId] = useState<number>(1);
+  const [optimizeResult, setOptimizeResult] = useState<any>(null);
+  const [optimizeError, setOptimizeError] = useState<string | null>(null);
+  const [useDoeAsInitial, setUseDoeAsInitial] = useState(true);
+  const [maxInitialPoints, setMaxInitialPoints] = useState(50);
+
   const idToName = useMemo(() => Object.fromEntries(variables.map(v => [v.id, v.name])), [variables]);
   const idToVar = useMemo(() => Object.fromEntries(variables.map(v => [v.id, v])), [variables]);
 
@@ -69,7 +97,7 @@ function App() {
           <VariableGraph variables={variables} isLoading={loading} />
         ) : (
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <button
                 className="px-4 py-2 bg-gray-900 text-white rounded"
                 onClick={() => setDoeOpen((v) => !v)}
@@ -77,6 +105,14 @@ function App() {
                 Run DOE
               </button>
               <div className="text-xs text-gray-500">Endpoint: POST /experiments/doe</div>
+
+              <button
+                className="px-4 py-2 bg-purple-700 text-white rounded"
+                onClick={() => setOptimizeOpen((v) => !v)}
+              >
+                Run Optimize
+              </button>
+              <div className="text-xs text-gray-500">Endpoint: POST /experiments/optimize</div>
             </div>
 
             {doeOpen && (
@@ -134,14 +170,16 @@ function App() {
                       const variable_ids = Object.entries(selectedIds)
                         .filter(([, v]) => v)
                         .map(([k]) => parseInt(k, 10));
+                      if (variable_ids.length === 0) {
+                        setDoeError('Select at least one variable.');
+                        return;
+                      }
                       try {
-                        const resp = await fetch('/experiments/doe', {
+                        const data = await fetchJson('/experiments/doe', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ variable_ids, n_points: nPoints, method }),
                         });
-                        const data = await resp.json();
-                        if (!resp.ok) throw new Error(JSON.stringify(data));
                         setDoeResult(data);
                       } catch (err: any) {
                         setDoeError(err?.message || String(err));
@@ -166,7 +204,7 @@ function App() {
                         className="px-3 py-1 bg-emerald-600 text-white rounded text-xs"
                         onClick={async () => {
                           try {
-                            const resp = await fetch('/experiments/doe/insight', {
+                            const data = await fetchJson('/experiments/doe/insight', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
@@ -174,8 +212,6 @@ function App() {
                                 points: doeResult.points,
                               }),
                             });
-                            const data = await resp.json();
-                            if (!resp.ok) throw new Error(JSON.stringify(data));
                             setDoeResult((prev: any) => ({ ...prev, insight: data }));
                           } catch (err: any) {
                             setDoeError(err?.message || String(err));
@@ -233,6 +269,300 @@ function App() {
                         </ul>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {optimizeOpen && (
+              <div className="p-4 bg-white rounded border border-gray-200 space-y-3">
+                <div className="text-sm font-medium">Optimize (stub)</div>
+
+                <div className="flex gap-3 items-center flex-wrap">
+                  <label className="text-sm">Objective</label>
+                  <select
+                    className="border rounded px-2 py-1"
+                    value={objectiveKind}
+                    onChange={(e) => setObjectiveKind(e.target.value as any)}
+                  >
+                    <option value="maximize_variable">maximize</option>
+                    <option value="minimize_variable">minimize</option>
+                  </select>
+
+                  <select
+                    className="border rounded px-2 py-1"
+                    value={objectiveVarId}
+                    onChange={(e) => setObjectiveVarId(parseInt(e.target.value, 10))}
+                  >
+                    {variables.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} (id={v.id})
+                      </option>
+                    ))}
+                  </select>
+
+                  <label className="text-sm ml-4">Iterations</label>
+                  <input
+                    className="border rounded px-2 py-1 w-28"
+                    type="number"
+                    min={1}
+                    max={5000}
+                    value={nIter}
+                    onChange={(e) => setNIter(parseInt(e.target.value || '1', 10))}
+                  />
+
+                  <label className="text-sm ml-4">Method</label>
+                  <select
+                    className="border rounded px-2 py-1"
+                    value={optMethod}
+                    onChange={(e) => setOptMethod(e.target.value as any)}
+                  >
+                    <option value="random">random</option>
+                  </select>
+
+                  <label className="text-sm ml-4">Seed</label>
+                  <input
+                    className="border rounded px-2 py-1 w-28"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="(auto)"
+                    value={optSeedRaw}
+                    onChange={(e) => setOptSeedRaw(e.target.value)}
+                  />
+
+                  <span className="text-xs text-gray-500">(random within domain; placeholder objective)</span>
+                </div>
+
+                <div>
+                  <div className="text-sm mb-2 flex items-center justify-between gap-2">
+                    <span>Variables (reuse DOE selection)</span>
+                    <button
+                      className="px-3 py-1 border rounded text-xs"
+                      onClick={() => {
+                        if (!doeResult?.points || !doeResult?.variable_ids) {
+                          setOptimizeError('No DOE points available. Run DOE first.');
+                          return;
+                        }
+                        // Auto-select DOE variables
+                        const next: Record<number, boolean> = {};
+                        for (const vid of doeResult.variable_ids) next[vid] = true;
+                        setSelectedIds(next);
+                      }}
+                    >
+                      Use DOE vars
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={useDoeAsInitial}
+                        onChange={(e) => setUseDoeAsInitial(e.target.checked)}
+                      />
+                      Seed with DOE points
+                      <span className="text-gray-500">
+                        ({doeResult?.points ? doeResult.points.length : 0})
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                      Max initial points
+                      <input
+                        className="border rounded px-2 py-1 w-20 text-xs"
+                        type="number"
+                        min={0}
+                        max={5000}
+                        value={maxInitialPoints}
+                        onChange={(e) => setMaxInitialPoints(parseInt(e.target.value || '0', 10))}
+                      />
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="text-xs text-gray-500">
+                      Wybrane: {Object.entries(selectedIds).filter(([, v]) => v).length}
+                    </div>
+                    <button
+                      className="px-3 py-1 border rounded text-xs"
+                      onClick={() => setSelectedIds({})}
+                    >
+                      Clear selection
+                    </button>
+                    <button
+                      className="px-3 py-1 border rounded text-xs"
+                      onClick={() => {
+                        const next: Record<number, boolean> = {};
+                        for (const v of variables) next[v.id] = true;
+                        setSelectedIds(next);
+                      }}
+                    >
+                      Select all
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    className="px-4 py-2 bg-purple-700 text-white rounded"
+                    onClick={async () => {
+                      setOptimizeError(null);
+                      setOptimizeResult(null);
+                      const variable_ids = Object.entries(selectedIds)
+                        .filter(([, v]) => v)
+                        .map(([k]) => parseInt(k, 10));
+                      if (variable_ids.length === 0) {
+                        setOptimizeError('Select at least one variable.');
+                        return;
+                      }
+                      if (!variable_ids.includes(objectiveVarId)) {
+                        setOptimizeError('Objective variable must be included in selected variables.');
+                        return;
+                      }
+                      try {
+                        const seed = optSeedRaw.trim() === '' ? null : parseInt(optSeedRaw, 10);
+                        const doeInitial = (doeResult?.points && doeResult?.variable_ids)
+                          ? doeResult.points.map((p: any) => {
+                              const out: Record<string, number> = {};
+                              for (const vid of doeResult.variable_ids) out[String(vid)] = Number(p[String(vid)]);
+                              return out;
+                            })
+                          : [];
+
+                        const initial_points = useDoeAsInitial
+                          ? doeInitial.slice(0, Math.max(0, Number.isFinite(maxInitialPoints as any) ? maxInitialPoints : 0))
+                          : [];
+
+                        const data = await fetchJson('/experiments/optimize', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            variable_ids,
+                            n_iter: nIter,
+                            method: optMethod,
+                            seed: Number.isFinite(seed as any) ? seed : null,
+                            objective: { kind: objectiveKind, variable_id: objectiveVarId },
+                            initial_points,
+                            max_initial_points: Math.max(0, maxInitialPoints),
+                          }),
+                        });
+                        setOptimizeResult(data);
+                      } catch (err: any) {
+                        setOptimizeError(err?.message || String(err));
+                      }
+                    }}
+                  >
+                    Run
+                  </button>
+
+                  <button className="px-4 py-2 border rounded" onClick={() => { setOptimizeOpen(false); setOptimizeError(null); setOptimizeResult(null); }}>
+                    Close
+                  </button>
+                </div>
+
+                {optimizeError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{optimizeError}</pre>}
+
+                {optimizeResult && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Optimize result</div>
+                      <button
+                        className="px-3 py-1 bg-emerald-600 text-white rounded text-xs"
+                        onClick={async () => {
+                          try {
+                            const data = await fetchJson('/experiments/optimize/insight', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                variable_ids: optimizeResult.variable_ids,
+                                best_point: optimizeResult.best_point,
+                                meta: optimizeResult.meta || {},
+                              }),
+                            });
+                            setOptimizeResult((prev: any) => ({ ...prev, insight: data }));
+                          } catch (err: any) {
+                            setOptimizeError(err?.message || String(err));
+                          }
+                        }}
+                      >
+                        Generate insight
+                      </button>
+                    </div>
+                    {optimizeResult.insight && (
+                      <div className="p-3 bg-gray-50 border rounded">
+                        <div className="text-sm font-medium">{optimizeResult.insight.summary}</div>
+                        <ul className="list-disc pl-5 mt-2 text-xs text-gray-700 space-y-1">
+                          {(optimizeResult.insight.bullets || []).map((b: string, i: number) => (
+                            <li key={i}>{b}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="text-sm font-medium">Best point</div>
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span>best_score: {Number(optimizeResult?.meta?.best_score ?? NaN).toFixed(4)}</span>
+                        <span>
+                          objective: {optimizeResult?.meta?.objective?.kind || '—'} (var {optimizeResult?.meta?.objective?.variable_id ?? '—'})
+                        </span>
+                        <span>
+                          seeded: {optimizeResult?.meta?.initial_points ?? 0}
+                          {optimizeResult?.meta?.max_initial_points !== undefined ? ` / max ${optimizeResult.meta.max_initial_points}` : ''}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="overflow-auto border rounded">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {(optimizeResult.variable_ids || []).map((vid: number) => (
+                              <th key={vid} className="text-left p-2">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <span>{idToName[vid] || String(vid)}</span>
+                                    {sourceBadge(idToVar[vid]?.source)}
+                                  </div>
+                                  <div className="text-[10px] text-gray-500">
+                                    [{optimizeResult?.meta?.domain?.[String(vid)]?.min ?? '—'}..{optimizeResult?.meta?.domain?.[String(vid)]?.max ?? '—'}] {optimizeResult?.meta?.domain?.[String(vid)]?.unit ?? ''}
+                                  </div>
+                                </div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-t">
+                            {(optimizeResult.variable_ids || []).map((vid: number) => (
+                              <td key={vid} className="p-2">{Number(optimizeResult.best_point?.[String(vid)]).toFixed(4)}</td>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="text-sm font-medium">History (first 10)</div>
+                    <div className="overflow-auto border rounded">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left p-2">#</th>
+                            {(optimizeResult.variable_ids || []).map((vid: number) => (
+                              <th key={vid} className="text-left p-2">{idToName[vid] || String(vid)}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(optimizeResult.history || []).slice(0, 10).map((p: any, idx: number) => (
+                            <tr key={idx} className="border-t">
+                              <td className="p-2">{idx + 1}</td>
+                              {(optimizeResult.variable_ids || []).map((vid: number) => (
+                                <td key={vid} className="p-2">{Number(p[String(vid)]).toFixed(4)}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
