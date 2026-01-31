@@ -361,9 +361,14 @@ function App() {
                           <tr>
                             {(optimizeResult.variable_ids || []).map((vid: number) => (
                               <th key={vid} className="text-left p-2">
-                                <div className="flex items-center gap-2">
-                                  <span>{idToName[vid] || String(vid)}</span>
-                                  {sourceBadge(idToVar[vid]?.source)}
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <span>{idToName[vid] || String(vid)}</span>
+                                    {sourceBadge(idToVar[vid]?.source)}
+                                  </div>
+                                  <div className="text-[10px] text-gray-500">
+                                    [{optimizeResult?.meta?.domain?.[String(vid)]?.min ?? '—'}..{optimizeResult?.meta?.domain?.[String(vid)]?.max ?? '—'}] {optimizeResult?.meta?.domain?.[String(vid)]?.unit ?? ''}
+                                  </div>
                                 </div>
                               </th>
                             ))}
