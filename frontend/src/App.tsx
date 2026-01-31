@@ -30,6 +30,24 @@ function App() {
   const [doeResult, setDoeResult] = useState<any>(null);
   const [doeError, setDoeError] = useState<string | null>(null);
   const idToName = useMemo(() => Object.fromEntries(variables.map(v => [v.id, v.name])), [variables]);
+  const idToVar = useMemo(() => Object.fromEntries(variables.map(v => [v.id, v])), [variables]);
+
+  const sourceBadge = (source?: string) => {
+    const s = String(source || '').toUpperCase();
+    const cfg: Record<string, { label: string; dot: string; text: string }> = {
+      HARD_DATA: { label: 'HARD_DATA', dot: 'bg-emerald-500', text: 'text-emerald-700' },
+      USER_INPUT: { label: 'USER_INPUT', dot: 'bg-blue-500', text: 'text-blue-700' },
+      AI_SUGGESTION: { label: 'AI_SUGGESTION', dot: 'bg-amber-500', text: 'text-amber-700' },
+      MIXED: { label: 'MIXED', dot: 'bg-violet-500', text: 'text-violet-700' },
+    };
+    const c = cfg[s] || { label: s || 'UNKNOWN', dot: 'bg-gray-400', text: 'text-gray-600' };
+    return (
+      <span className={"inline-flex items-center gap-1 text-[10px] font-medium " + c.text}>
+        <span className={"inline-block w-2 h-2 rounded-full " + c.dot} />
+        {c.label}
+      </span>
+    );
+  };
 
   return (
     <div className="w-screen h-screen bg-gray-50 text-gray-900">
@@ -97,7 +115,10 @@ function App() {
                           checked={!!selectedIds[v.id]}
                           onChange={(e) => setSelectedIds((prev) => ({ ...prev, [v.id]: e.target.checked }))}
                         />
-                        <span>{v.name}</span>
+                        <span className="flex items-center gap-2">
+                          <span>{v.name}</span>
+                          {sourceBadge(v.source)}
+                        </span>
                         <span className="text-xs text-gray-400">[{v.min_value ?? '—'}..{v.max_value ?? '—'}]</span>
                       </label>
                     ))}
@@ -171,7 +192,12 @@ function App() {
                           <tr>
                             <th className="text-left p-2">#</th>
                             {(doeResult.variable_ids || []).map((vid: number) => (
-                              <th key={vid} className="text-left p-2">{idToName[vid] || String(vid)}</th>
+                              <th key={vid} className="text-left p-2">
+                                <div className="flex items-center gap-2">
+                                  <span>{idToName[vid] || String(vid)}</span>
+                                  {sourceBadge(idToVar[vid]?.source)}
+                                </div>
+                              </th>
                             ))}
                           </tr>
                         </thead>
@@ -190,7 +216,16 @@ function App() {
 
                     {doeResult.insight && (
                       <div className="p-3 bg-gray-50 border rounded">
-                        <div className="text-sm font-medium">{doeResult.insight.summary}</div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-medium">{doeResult.insight.summary}</div>
+                          <div className="flex flex-wrap gap-2">
+                            {(doeResult.variable_ids || []).map((vid: number) => (
+                              <span key={vid} className="text-[10px] text-gray-500">
+                                {idToName[vid] || String(vid)} {sourceBadge(idToVar[vid]?.source)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                         <ul className="list-disc pl-5 mt-2 text-xs text-gray-700 space-y-1">
                           {(doeResult.insight.bullets || []).map((b: string, i: number) => (
                             <li key={i}>{b}</li>
@@ -206,8 +241,11 @@ function App() {
             <ul className="space-y-2">
               {variables.map((v) => (
                 <li key={v.id} className="p-3 bg-white rounded border border-gray-200">
-                  <div className="font-medium">{v.name}</div>
-                  <div className="text-xs text-gray-500">{String(v.variable_type)} • {String(v.source)}</div>
+                  <div className="font-medium flex items-center justify-between gap-2">
+                    <span>{v.name}</span>
+                    {sourceBadge(v.source)}
+                  </div>
+                  <div className="text-xs text-gray-500">{String(v.variable_type)}</div>
                 </li>
               ))}
             </ul>

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api.variables import router as variable_router
 from .api.relationships import router as relationship_router
 from .api.experiments import router as experiments_router
+from .api.optimize import router as optimize_router
 
 app = FastAPI(
     title="Product Optimizer API",
@@ -23,6 +24,7 @@ app.add_middleware(
 app.include_router(variable_router)
 app.include_router(relationship_router)
 app.include_router(experiments_router)
+app.include_router(optimize_router)
 
 
 @app.get("/")
