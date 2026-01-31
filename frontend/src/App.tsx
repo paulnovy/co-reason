@@ -165,6 +165,10 @@ function App() {
                       const variable_ids = Object.entries(selectedIds)
                         .filter(([, v]) => v)
                         .map(([k]) => parseInt(k, 10));
+                      if (variable_ids.length === 0) {
+                        setDoeError('Select at least one variable.');
+                        return;
+                      }
                       try {
                         const data = await fetchJson('/experiments/doe', {
                           method: 'POST',
@@ -325,6 +329,10 @@ function App() {
                       const variable_ids = Object.entries(selectedIds)
                         .filter(([, v]) => v)
                         .map(([k]) => parseInt(k, 10));
+                      if (variable_ids.length === 0) {
+                        setOptimizeError('Select at least one variable.');
+                        return;
+                      }
                       try {
                         const data = await fetchJson('/experiments/optimize', {
                           method: 'POST',
