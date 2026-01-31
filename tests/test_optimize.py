@@ -50,7 +50,13 @@ def test_optimize_random_ok(client: TestClient):
 
     resp = client.post(
         "/experiments/optimize",
-        json={"variable_ids": [v1, v2], "n_iter": 5, "method": "random", "seed": 42},
+        json={
+            "variable_ids": [v1, v2],
+            "n_iter": 5,
+            "method": "random",
+            "seed": 42,
+            "objective": {"kind": "maximize_variable", "variable_id": v1},
+        },
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -85,6 +91,7 @@ def test_optimize_accepts_initial_points(client: TestClient):
             "n_iter": 2,
             "method": "random",
             "seed": 1,
+            "objective": {"kind": "maximize_variable", "variable_id": v1},
             "initial_points": [{str(v1): 0.5, str(v2): 0.0}],
             "max_initial_points": 200,
         },
@@ -106,6 +113,7 @@ def test_optimize_rejects_initial_points_out_of_domain(client: TestClient):
             "n_iter": 1,
             "method": "random",
             "seed": 1,
+            "objective": {"kind": "maximize_variable", "variable_id": v1},
             "initial_points": [{str(v1): 2.0}],
         },
     )
@@ -122,6 +130,7 @@ def test_optimize_limits_initial_points(client: TestClient):
             "n_iter": 1,
             "method": "random",
             "seed": 1,
+            "objective": {"kind": "maximize_variable", "variable_id": v1},
             "initial_points": [{str(v1): 0.1}, {str(v1): 0.2}, {str(v1): 0.3}],
             "max_initial_points": 2,
         },

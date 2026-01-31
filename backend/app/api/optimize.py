@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..deps import get_db
 from ..models.variable import Variable
+from .objectives import ObjectiveSpec, ObjectiveKind
 
 
 class OptimizeMethod(str, Enum):
@@ -18,6 +19,8 @@ class OptimizeRequest(BaseModel):
     n_iter: int = Field(30, ge=1, le=5000)
     method: OptimizeMethod = Field(OptimizeMethod.random)
     seed: Optional[int] = None
+    # IMPORTANT: set variable_id explicitly in the request; default is placeholder and will be rejected.
+    objective: ObjectiveSpec = Field(default_factory=lambda: ObjectiveSpec(kind=ObjectiveKind.maximize_variable, variable_id=0))
     initial_points: List[Dict[str, float]] = Field(default_factory=list)
     max_initial_points: int = Field(200, ge=0, le=5000)
 
@@ -75,15 +78,21 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
 
     rng = random.Random(req.seed)
 
+    # Objective validation
+    if req.objective.variable_id not in req.variable_ids:
+        raise HTTPException(
+            status_code=422,
+            detail={"reason": "objective.variable_id must be included in variable_ids", "variable_id": req.objective.variable_id},
+        )
+
     bounds = [(float(v.min_value), float(v.max_value)) for v in ordered]
     bounds_by_id = {str(v.id): (float(v.min_value), float(v.max_value)) for v in ordered}
 
+    from .objectives import score_point as score_by_objective
+
     def score_point(p: Dict[str, Any]) -> float:
-        score = 0.0
-        for (v, (lo, hi)) in zip(ordered, bounds):
-            x = float(p[str(v.id)])
-            score += (x - lo) / (hi - lo) if hi > lo else 0.0
-        return score
+        # For now: explicit objective (maximize/minimize variable)
+        return float(score_by_objective(p, req.objective))
 
     history: List[Dict[str, Any]] = []
     best_score = float("-inf")
@@ -131,7 +140,7 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
         best_point=best_point,
         history=history,
         meta={
-            "objective": "stub:maximize_normalized_sum",
+            "objective": req.objective.model_dump(),
             "best_score": best_score,
             "initial_points": len(initial_iter),
             "max_initial_points": req.max_initial_points,
