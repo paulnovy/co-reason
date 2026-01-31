@@ -52,6 +52,15 @@ function App() {
   const [optSeedRaw, setOptSeedRaw] = useState<string>('1');
   const [objectiveKind, setObjectiveKind] = useState<'maximize_variable' | 'minimize_variable'>('maximize_variable');
   const [objectiveVarId, setObjectiveVarId] = useState<number>(1);
+
+  useEffect(() => {
+    if (variables.length > 0) {
+      setObjectiveVarId((prev) => {
+        if (variables.some((v) => v.id === prev)) return prev;
+        return variables[0].id;
+      });
+    }
+  }, [variables]);
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [useDoeAsInitial, setUseDoeAsInitial] = useState(true);
@@ -347,6 +356,12 @@ function App() {
                         const next: Record<number, boolean> = {};
                         for (const vid of doeResult.variable_ids) next[vid] = true;
                         setSelectedIds(next);
+
+                        // Ensure objective variable is included
+                        setObjectiveVarId((prev) => {
+                          if (doeResult.variable_ids.includes(prev)) return prev;
+                          return doeResult.variable_ids[0] ?? prev;
+                        });
                       }}
                     >
                       Use DOE vars
@@ -475,7 +490,12 @@ function App() {
                               body: JSON.stringify({
                                 variable_ids: optimizeResult.variable_ids,
                                 best_point: optimizeResult.best_point,
-                                meta: optimizeResult.meta || {},
+                                meta: {
+                                  ...(optimizeResult.meta || {}),
+                                  variable_names: Object.fromEntries(
+                                    (optimizeResult.variable_ids || []).map((vid: number) => [String(vid), idToName[vid] || String(vid)])
+                                  ),
+                                },
                               }),
                             });
                             setOptimizeResult((prev: any) => ({ ...prev, insight: data }));
@@ -503,7 +523,9 @@ function App() {
                       <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span>best_score: {Number(optimizeResult?.meta?.best_score ?? NaN).toFixed(4)}</span>
                         <span>
-                          objective: {optimizeResult?.meta?.objective?.kind || '—'} (var {optimizeResult?.meta?.objective?.variable_id ?? '—'})
+                          objective: {optimizeResult?.meta?.objective?.kind || '—'}
+                          {' '}
+                          ({idToName[Number(optimizeResult?.meta?.objective?.variable_id)] || `var ${optimizeResult?.meta?.objective?.variable_id ?? '—'}`})
                         </span>
                         <span>
                           seeded: {optimizeResult?.meta?.initial_points ?? 0}
