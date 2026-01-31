@@ -1,36 +1,21 @@
-# Product Optimizer — Sprint 1 (Thin Vertical Slice)
+# Product Optimizer — Sprint 2 (Optimization stub + provenance UX polish)
 
 ## Cel
-Zbudować pierwszy cienki „end‑to‑end” slice, który dowodzi kluczowej wartości: użytkownik tworzy model, uruchamia bezpieczny DOE i dostaje zrozumiałe insighty.
+Zrobić następny cienki slice: po DOE użytkownik może uruchomić **bezpieczną optymalizację** (na razie stub + sanity constraints) oraz zobaczyć provenance konsekwentnie w UI.
 
-## Zakres (must‑have)
-1) **Model creation**
-- CRUD zmiennych + relacji (już jest).
-- Każda zmienna ma: typ (category), constraints (min/max/unit), provenance (source+confidence).
+## Zakres (must-have)
+1) **Optimization (safe stub)**
+- Endpoint: `POST /experiments/optimize`
+- Wejście: `variable_ids`, `objective` (na razie placeholder), `n_iter`, `method` (na start: random within domain)
+- Twarde constraints: każdy variable musi mieć min/max.
+- Wyjście: `best_point`, `history` (lista punktów), meta.
 
-2) **DOE (safe)**
-- Endpoint backendu: `POST /experiments/doe`.
-- Wejście: lista `variable_id` + liczba punktów + metoda (`sobol` lub `lhs`).
-- Silnik generuje punkty **tylko w domenie** (twarde min/max). Jeśli domena nieznana → reject/"unsafe".
-- Wyjście: macierz punktów + metadane (seed, metoda).
+2) **Frontend provenance polish**
+- W widoku listy oraz w wynikach DOE/insight: oznaczyć provenance kolorem (HARD_DATA/USER_INPUT/AI_SUGGESTION/MIXED).
 
-3) **Insight (narrative, kontrolowany szablon)**
-- Endpoint backendu: `POST /experiments/doe/insight`.
-- Wejście: DOE points + opcjonalne wyniki (jeśli mamy funkcję celu później).
-- Wyjście: krótka narracja wg template (bez "silent writes").
-
-4) **Frontend (MVP)**
-- Widok listy zmiennych (stable) + przycisk „Run DOE”.
-- Modal: wybór zmiennych + metoda + liczba punktów.
-- Wynik: tabela + proste wykresy (na start można tabela + placeholder wykresów).
-- UI pokazuje provenance (kolor) w całym flow.
-
-## Safety / Trust
-- Backend enforce: domain clipping/reject.
-- Provenance zawsze widoczna.
-- AI nie może generować wartości poza domeną; jeśli brak domeny → "unsafe".
+## Safety
+- Backend zawsze waliduje domain. Brak domeny → reject.
 
 ## Out of scope
-- Optymalizacja (Sprint 2)
-- Pełny AI Assistant panel
+- Pełna BO/DEAP (to Sprint 3)
 - Zaawansowane wykresy

@@ -1,6 +1,3 @@
-- [x] Task 1: Zdefiniuj schematy Pydantic i endpoint `POST /experiments/doe` (request/response)
-- [x] Task 2: Implementacja DOE: Sobol (pierwszy) z twardymi min/max (domain enforcement)
-- [x] Task 3: Dodaj testy backendu dla DOE (min. 2 przypadki + out-of-domain reject)
-- [x] Task 4: Front: modal "Run DOE" (wybór zmiennych + parametry)
-- [x] Task 5: Front: wyświetlenie wyników DOE (tabela)
-- [x] Task 6: Controlled template dla insightów DOE (backend stub)
+- [x] Task 1: Backend endpoint `POST /experiments/optimize` (stub random, strict domain)
+- [x] Task 2: Testy backendu optymalizacji (domain reject + shapes)
+- [x] Task 3: Front: provenance colors in variable list + DOE results + insight
