@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
-import { Variable, VariableList, CreateVariableRequest, UpdateVariableRequest } from '../types';
+import type { VariableList, CreateVariableRequest, UpdateVariableRequest } from '../types';
 
 const VARIABLES_KEY = 'variables';
 
@@ -19,13 +19,9 @@ export function useVariable(id: number | string) {
   });
 }
 
-export function useVariableTree(rootId?: string) {
-  return useQuery({
-    queryKey: [VARIABLES_KEY, 'tree', rootId],
-    queryFn: () => apiClient.getVariableTree(rootId),
-    enabled: rootId !== undefined,
-  });
-}
+// Variable tree is not implemented in the API yet (left as a placeholder).
+// Keeping the hook would break `npm run build` under verbatimModuleSyntax.
+// When backend supports it, re-add getVariableTree() to apiClient and this hook.
 
 export function useCreateVariable() {
   const queryClient = useQueryClient();
@@ -65,18 +61,5 @@ export function useDeleteVariable() {
   });
 }
 
-// AI Assistant hooks
-export function useAIChat() {
-  return useMutation({
-    mutationFn: ({ message, context }: { message: string; context?: { variableIds?: string[] } }) =>
-      apiClient.sendAIMessage(message, context),
-  });
-}
-
-export function useAISuggestions(variableId: string) {
-  return useQuery({
-    queryKey: ['ai', 'suggestions', variableId],
-    queryFn: () => apiClient.getAISuggestions(variableId),
-    enabled: !!variableId,
-  });
-}
+// AI Assistant hooks are not implemented in the API yet.
+// When backend supports it, add sendAIMessage/getAISuggestions to apiClient and re-enable these hooks.

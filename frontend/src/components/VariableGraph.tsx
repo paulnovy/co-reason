@@ -7,6 +7,7 @@ import {
   useNodesState,
   useEdgesState,
   type Node,
+  type Edge,
   Panel,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -37,7 +38,7 @@ const typeFilters: { type: VariableSource | 'ALL'; label: string; color: string 
 
 export function VariableGraph({ variables, relationships = [], isLoading }: VariableGraphProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<VariableNodeData>>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   const {
     filterType,
