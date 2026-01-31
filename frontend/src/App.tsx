@@ -363,26 +363,55 @@ function App() {
                       ))}
                     </select>
                   ) : (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {variables
-                        .filter((v) => !!selectedIds[v.id])
-                        .slice(0, 5)
-                        .map((v) => (
-                          <label key={v.id} className="flex items-center gap-1 text-xs">
-                            <span className="text-gray-600">w({v.id})</span>
-                            <input
-                              className="border rounded px-2 py-1 w-20"
-                              type="text"
-                              inputMode="decimal"
-                              value={linearWeights[v.id] ?? '0'}
-                              onChange={(e) => setLinearWeights((prev) => ({ ...prev, [v.id]: e.target.value }))}
-                              placeholder="0"
-                              title={v.name}
-                            />
-                            <span className="text-gray-500 truncate max-w-[140px]">{v.name}</span>
-                          </label>
-                        ))}
-                      <span className="text-xs text-gray-500">(first 5 selected vars)</span>
+                    <div className="flex items-start gap-3 flex-wrap">
+                      <div className="max-h-40 overflow-auto border rounded p-2 bg-white">
+                        <div className="grid grid-cols-1 gap-1">
+                          {variables
+                            .filter((v) => !!selectedIds[v.id])
+                            .map((v) => (
+                              <label key={v.id} className="flex items-center gap-2 text-xs">
+                                <span className="text-gray-600 w-12">w({v.id})</span>
+                                <input
+                                  className="border rounded px-2 py-1 w-24"
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={linearWeights[v.id] ?? '0'}
+                                  onChange={(e) => setLinearWeights((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                                  placeholder="0"
+                                  title={v.name}
+                                />
+                                <span className="text-gray-500 truncate max-w-[240px]">{v.name}</span>
+                              </label>
+                            ))}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <button
+                          className="px-3 py-1 border rounded text-xs"
+                          onClick={() => {
+                            const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                            const next: Record<number, string> = {};
+                            for (const id of ids) next[id] = '0';
+                            setLinearWeights((prev) => ({ ...prev, ...next }));
+                          }}
+                          type="button"
+                        >
+                          Reset weights
+                        </button>
+                        <button
+                          className="px-3 py-1 border rounded text-xs"
+                          onClick={() => {
+                            const ids = variables.filter((v) => !!selectedIds[v.id]).map((v) => v.id);
+                            const next: Record<number, string> = {};
+                            for (const id of ids) next[id] = '1';
+                            setLinearWeights((prev) => ({ ...prev, ...next }));
+                          }}
+                          type="button"
+                        >
+                          Set +1 (selected)
+                        </button>
+                      </div>
                     </div>
                   )}
 
