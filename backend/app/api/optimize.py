@@ -101,6 +101,8 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
                 status_code=422,
                 detail={"reason": "objective.terms variable_ids must be included in variable_ids", "missing": missing},
             )
+        if req.objective.normalize is not None and req.objective.normalize != "domain":
+            raise HTTPException(status_code=422, detail={"reason": "objective.normalize must be 'domain'"})
     else:
         raise HTTPException(status_code=422, detail={"reason": "unsupported objective kind", "kind": str(req.objective.kind)})
 
@@ -110,7 +112,20 @@ def optimize(req: OptimizeRequest, db: Session = Depends(get_db)) -> OptimizeRes
     from .objectives import score_point as score_by_objective
 
     def score_point(p: Dict[str, Any]) -> float:
-        # For now: explicit objective (maximize/minimize variable)
+        # Objective scoring (deterministic)
+        if req.objective.kind == ObjectiveKind.linear and req.objective.normalize == "domain":
+            # normalize x to [0,1] using the strict domain bounds
+            p_norm: Dict[str, Any] = dict(p)
+            for t in req.objective.terms:
+                key = str(t.variable_id)
+                lo, hi = bounds_by_id[key]
+                # hi==lo shouldn't happen due to safe domain, but avoid div-by-zero
+                if hi == lo:
+                    p_norm[key] = 0.0
+                else:
+                    p_norm[key] = (float(p[key]) - lo) / (hi - lo)
+            return float(score_by_objective(p_norm, req.objective))
+
         return float(score_by_objective(p, req.objective))
 
     history: List[Dict[str, Any]] = []

@@ -140,3 +140,49 @@ def test_optimize_limits_initial_points(client: TestClient):
     assert data["meta"]["initial_points"] == 2
     assert data["meta"]["max_initial_points"] == 2
     assert len(data["history"]) == 3
+
+
+def test_optimize_linear_normalize_domain_ok(client: TestClient):
+    v1 = _create_var(client, "a", 0.0, 10.0)
+    v2 = _create_var(client, "b", 100.0, 200.0)
+
+    resp = client.post(
+        "/experiments/optimize",
+        json={
+            "variable_ids": [v1, v2],
+            "n_iter": 2,
+            "method": "random",
+            "seed": 1,
+            "objective": {
+                "kind": "linear",
+                "normalize": "domain",
+                "terms": [
+                    {"variable_id": v1, "weight": 1.0},
+                    {"variable_id": v2, "weight": -1.0},
+                ],
+            },
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["meta"]["objective"]["normalize"] == "domain"
+
+
+def test_optimize_rejects_invalid_linear_normalize(client: TestClient):
+    v1 = _create_var(client, "a2", 0.0, 10.0)
+
+    resp = client.post(
+        "/experiments/optimize",
+        json={
+            "variable_ids": [v1],
+            "n_iter": 1,
+            "method": "random",
+            "seed": 1,
+            "objective": {
+                "kind": "linear",
+                "normalize": "zscore",
+                "terms": [{"variable_id": v1, "weight": 1.0}],
+            },
+        },
+    )
+    assert resp.status_code == 422

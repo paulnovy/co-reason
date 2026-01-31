@@ -85,6 +85,7 @@ function App() {
   const [objectiveKind, setObjectiveKind] = useState<'maximize_variable' | 'minimize_variable' | 'linear' | 'target'>('maximize_variable');
   const [objectiveVarId, setObjectiveVarId] = useState<number>(1);
   const [linearWeights, setLinearWeights] = useState<Record<number, string>>({});
+  const [linearNormalizeDomain, setLinearNormalizeDomain] = useState<boolean>(false);
   const [targetValueRaw, setTargetValueRaw] = useState<string>('');
   const [targetLoss, setTargetLoss] = useState<'abs' | 'squared'>('abs');
 
@@ -385,6 +386,17 @@ function App() {
                     </div>
                   )}
 
+                  {objectiveKind === 'linear' && (
+                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={linearNormalizeDomain}
+                        onChange={(e) => setLinearNormalizeDomain(e.target.checked)}
+                      />
+                      normalize by domain ([0..1])
+                    </label>
+                  )}
+
                   {objectiveKind === 'target' && (
                     <div className="flex items-center gap-2 flex-wrap">
                       <label className="text-xs text-gray-600">target</label>
@@ -577,6 +589,7 @@ function App() {
                                   terms: variable_ids
                                     .map((vid) => ({ variable_id: vid, weight: parseFloat(linearWeights[vid] ?? '0') }))
                                     .filter((t) => Number.isFinite(t.weight) && t.weight !== 0),
+                                  normalize: linearNormalizeDomain ? 'domain' : null,
                                 }
                               : objectiveKind === 'target'
                                 ? {
@@ -605,6 +618,7 @@ function App() {
                                   terms: variable_ids
                                     .map((vid) => ({ variable_id: vid, weight: parseFloat(linearWeights[vid] ?? '0') }))
                                     .filter((t) => Number.isFinite(t.weight) && t.weight !== 0),
+                                  normalize: linearNormalizeDomain ? 'domain' : null,
                                 }
                               : objectiveKind === 'target'
                                 ? {
@@ -858,6 +872,10 @@ function App() {
                                   if (Number.isFinite(ov)) setObjectiveVarId(ov);
                                   const ok = full.response_json?.meta?.objective?.kind;
                                   if (ok === 'maximize_variable' || ok === 'minimize_variable' || ok === 'linear' || ok === 'target') setObjectiveKind(ok);
+                                  if (ok === 'linear') {
+                                    const nz = full.response_json?.meta?.objective?.normalize;
+                                    setLinearNormalizeDomain(nz === 'domain');
+                                  }
                                   if (ok === 'target') {
                                     const tv = full.response_json?.meta?.objective?.target;
                                     if (tv !== undefined && tv !== null) setTargetValueRaw(String(tv));
@@ -915,6 +933,10 @@ function App() {
                                     if (Number.isFinite(ov)) setObjectiveVarId(ov);
                                     const ok = data?.meta?.objective?.kind;
                                     if (ok === 'maximize_variable' || ok === 'minimize_variable' || ok === 'linear' || ok === 'target') setObjectiveKind(ok);
+                                    if (ok === 'linear') {
+                                      const nz = data?.meta?.objective?.normalize;
+                                      setLinearNormalizeDomain(nz === 'domain');
+                                    }
                                     if (ok === 'target') {
                                       const tv = data?.meta?.objective?.target;
                                       if (tv !== undefined && tv !== null) setTargetValueRaw(String(tv));
