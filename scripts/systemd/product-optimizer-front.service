@@ -1,0 +1,16 @@
+[Unit]
+Description=Product Optimizer Frontend (vite dev)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/marian/co-reason/frontend
+Environment=VITE_USE_GRAPH=false
+ExecStart=/usr/bin/env bash -lc 'npm run dev -- --host 0.0.0.0 --port 5173'
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

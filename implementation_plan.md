@@ -1,0 +1,5 @@
+- [x] Task 1: Lista zmiennych (API -> UI) bez ReactFlow, stabilny render
+- [x] Task 2: Prosty ReactFlow grid (węzły bez relacji), stabilny render
+- [x] Task 3: Mapowanie enumów (lowercase -> uppercase) w UI
+- [x] Task 4: Mini weryfikacja (render check headless + curl) po każdej zmianie
+- [x] Task 5: Dodaj relacje (edges) z /relationships i pokaż w ReactFlow

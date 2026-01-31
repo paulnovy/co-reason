@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Basic global styles */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+/* ReactFlow custom styles */
+.react-flow__node {
+  border: 0;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.react-flow__edge-path {
+  stroke: #94a3b8;
+  stroke-width: 2;
+}
+
+.react-flow__controls {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.react-flow__minimap {
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}

@@ -1,13 +1,21 @@
+import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
 
-# 1. użyj prawidłowego dialektu
-SQLALCHEMY_DATABASE_URL = (
-    "postgresql+psycopg2://optimizer:optimizer_pass@localhost:5432/optimizer_db"
+from .db_base import Base
+
+SQLALCHEMY_DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg2://optimizer:optimizer_pass@localhost:5432/optimizer_db",
 )
 
-# 2. dodaj future=True / echo=True w dev (bardziej czytelne logi)
 engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True, future=True)
-
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-Base = declarative_base()
+
+
+def init_db() -> None:
+    """Create all tables (dev/test only; prefer Alembic in prod)."""
+    # Import models so they register with Base.metadata
+    from .models import variable as _variable  # noqa: F401
+    from .models import relationship as _relationship  # noqa: F401
+    Base.metadata.create_all(bind=engine)
